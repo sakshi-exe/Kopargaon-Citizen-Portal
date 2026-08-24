@@ -32,26 +32,60 @@ export default function FieldInspection() {
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!selectedAsset) return;
+  const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    dispatch({
-      type: 'SUBMIT_INSPECTION',
-      payload: {
-        assetId: selectedAsset.id,
-        inspectorName,
-        condition: conditionLevel,
-        conditionScore: Number(conditionScore),
-        remarks: remarks || `Routine municipal audit performed for ${selectedAsset.name}. Condition verified.`,
-        evidencePhoto: photoPreview || 'https://images.unsplash.com/photo-1590496793929-36417d3117de?auto=format&fit=crop&w=600&q=80',
+  const errs = validate();
+
+  if (Object.keys(errs).length > 0) {
+    setErrors(errs);
+    return;
+  }
+
+  setErrors({});
+
+  const { data, error } = await supabase
+    .from('issues')
+    .insert([
+      {
+        title: `${form.category} Issue`,
+        description: form.description,
+        category: form.category,
+        priority: 'medium',
+        status: 'pending',
+        location: form.wardId,
+        citizen_name: form.isAnonymous
+          ? 'Anonymous'
+          : form.citizenName,
+        latitude: pickedLoc[0],
+        longitude: pickedLoc[1],
       }
-    });
+    ])
+    .select()
+    .single();
 
-    setSuccessBanner(true);
-    setTimeout(() => setSuccessBanner(false), 5000);
-    setRemarks('');
-  };
+  if (error) {
+    console.error('Supabase error:', error);
+    alert(`Failed to submit report: ${error.message}`);
+    return;
+  }
+
+  console.log('Issue saved:', data);
+
+  dispatch({
+    type: 'SUBMIT_ISSUE',
+    payload: {
+      ...form,
+      lat: pickedLoc[0],
+      lng: pickedLoc[1],
+      citizenName: form.isAnonymous
+        ? 'Anonymous'
+        : form.citizenName,
+    }
+  });
+
+  setSubmitted(true);
+};
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

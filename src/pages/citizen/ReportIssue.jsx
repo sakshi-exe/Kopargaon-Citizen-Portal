@@ -1,3 +1,4 @@
+import { supabase } from '../../lib/supabase.js';
 import React, { useState, useCallback } from 'react';
 import { MapContainer, TileLayer, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
