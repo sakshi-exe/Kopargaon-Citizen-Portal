@@ -1,14 +1,14 @@
 import React from 'react';
 
 const variants = {
-  default:  'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
-  blue:     'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
-  green:    'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300',
-  red:      'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300',
-  amber:    'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
-  purple:   'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300',
-  teal:     'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300',
-  orange:   'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300',
+  default:  'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200',
+  blue:     'bg-[#EEF3FF] dark:bg-[#14213c] text-[#000080] dark:text-[#d2e0ff]',
+  green:    'bg-[#EAF9ED] dark:bg-[#162a1f] text-[#138808] dark:text-[#a8e4b9]',
+  red:      'bg-[#FFF1F1] dark:bg-[#2a1e1e] text-[#D93025] dark:text-[#f9b1b1]',
+  amber:    'bg-[#FFF2E6] dark:bg-[#2a1d10] text-[#B86A00] dark:text-[#ffd8a0]',
+  purple:   'bg-[#F3ECFF] dark:bg-[#231b39] text-[#5032A0] dark:text-[#d7c2ff]',
+  teal:     'bg-[#EAF9F5] dark:bg-[#112a29] text-[#0F766E] dark:text-[#9ae5d2]',
+  orange:   'bg-[#FFF7E8] dark:bg-[#2a1d10] text-[#B86A00] dark:text-[#ffd8a0]',
 };
 
 export function Badge({ children, variant = 'default', size = 'sm', className = '', dot = false }) {

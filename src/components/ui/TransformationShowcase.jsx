@@ -60,49 +60,49 @@ export default function TransformationShowcase() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
+      <div className="p-6 sm:p-8 rounded-[30px] border border-[#F0C38B]/40 bg-gradient-to-br from-[#FFF8F2] via-white to-[#F3FBF4] shadow-[0_20px_50px_rgba(15,23,42,0.08)] relative overflow-hidden tricolor-bar">
+        <div className="absolute -left-16 top-4 h-36 w-36 rounded-full bg-[#FF9933]/12 blur-3xl" />
+        <div className="absolute -right-12 bottom-0 h-40 w-40 rounded-full bg-[#138808]/12 blur-3xl" />
 
-      {/* Top Main Section Header */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-slate-900 text-white border border-slate-700 shadow-xl relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/20 text-teal-300 text-xs font-mono font-bold mb-3 border border-teal-400/30">
+            <div className="civic-pill mb-3">
               <ShieldCheck size={14} /> KOPARGAON FIX · OFFICIAL CIVIC AUDIT
             </div>
-            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-[#0B1736] leading-tight">
               From Problem to Progress
             </h1>
-            <p className="text-sm sm:text-base text-slate-300 mt-2 leading-relaxed max-w-2xl">
-              See how Kopargaon Fix transformed the road. Genuine municipal project documentation from citizen detection to field verification.
+            <p className="text-sm sm:text-base text-slate-600 mt-2 leading-relaxed max-w-2xl">
+              See how Kopargaon Fix transformed the road with genuine municipal project documentation from citizen detection to field verification.
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-shrink-0">
             <button
               onClick={triggerTransformationAnimation}
-              className="px-5 py-3 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs sm:text-sm font-extrabold shadow-lg shadow-teal-500/25 transition-all flex items-center justify-center gap-2"
+              className="primary-btn px-5 py-3 text-xs sm:text-sm"
             >
               <RefreshCw size={16} className={isAnimating ? 'animate-spin' : ''} />
               View Project Transformation
             </button>
             <button
               onClick={() => handleOpenAssetQR(current.assetId)}
-              className="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 text-xs sm:text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+              className="secondary-btn px-4 py-3 text-xs sm:text-sm"
             >
               <QrCode size={16} /> Scan Asset QR ({current.assetId})
             </button>
           </div>
         </div>
 
-        {/* Project Selector Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto mt-6 pt-5 border-t border-slate-800 scrollbar-thin">
+        <div className="flex items-center gap-2 overflow-x-auto mt-6 pt-5 border-t border-slate-200 scrollbar-thin">
           {transformations.map((t) => (
             <button
               key={t.id}
               onClick={() => { setSelectedId(t.id); setViewMode('split'); }}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
                 selectedId === t.id
-                  ? 'bg-white text-slate-900 border-white shadow-md'
-                  : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-700'
+                  ? 'bg-[#0B1736] text-white border-[#0B1736] shadow-md'
+                  : 'bg-white/80 text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
             >
               <span>{t.category}</span>

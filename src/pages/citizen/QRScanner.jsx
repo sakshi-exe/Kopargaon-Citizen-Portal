@@ -39,76 +39,70 @@ export default function QRScanner() {
       />
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="mx-auto max-w-4xl rounded-[30px] border border-[#F0C38B]/40 bg-gradient-to-br from-[#FFF8F2] via-white to-[#F3FBF4] p-6 shadow-[0_20px_50px_rgba(15,23,42,0.08)] sm:p-8 relative overflow-hidden">
+          <div className="absolute -left-16 top-4 h-40 w-40 rounded-full bg-[#FF9933]/12 blur-3xl" />
+          <div className="absolute -right-12 bottom-0 h-44 w-44 rounded-full bg-[#138808]/12 blur-3xl" />
 
-        {/* Hero Scanner Viewfinder Box */}
-        <div className="max-w-3xl mx-auto p-6 sm:p-8 rounded-3xl bg-slate-900 text-white border border-slate-700 shadow-2xl relative overflow-hidden">
-          <div className="absolute -top-24 -right-24 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="text-center max-w-lg mx-auto">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/20 text-teal-300 text-xs font-mono font-bold mb-3 border border-teal-400/30">
-              <ShieldCheck size={14} /> KOPARGAON CIVIC TRANSPARENCY
+          <div className="relative">
+            <div className="text-center max-w-2xl mx-auto">
+              <div className="civic-pill mx-auto mb-4">
+                <ShieldCheck size={14} /> KOPARGAON CIVIC TRANSPARENCY
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0B1736]">
+                Scan CivicFix QR Tag
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
+                Scan the QR code attached to civic infrastructure to view verified background, budget, inspection status, and maintenance history.
+              </p>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Scan CivicFix QR Tag
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
-              Scan the QR code attached to civic infrastructure (roads, bridges, lights, drains, water tanks) to view its verified background, contractor, budget, inspection status, and maintenance history.
-            </p>
-          </div>
 
-          {/* Scanner Viewfinder Box */}
-          <div className="mt-6 flex flex-col items-center justify-center">
-            <div className="relative w-64 h-64 rounded-2xl border-2 border-teal-500/50 bg-slate-950/80 flex flex-col items-center justify-center p-4 shadow-inner overflow-hidden">
+            <div className="mt-6 flex flex-col items-center justify-center">
+              <div className="relative w-64 h-64 rounded-[28px] border border-[#138808]/20 bg-white/90 flex flex-col items-center justify-center p-4 shadow-[0_18px_32px_rgba(11,23,54,0.08)] overflow-hidden">
+                <div className="absolute top-2 left-2 w-8 h-8 border-t-4 border-l-4 border-[#FF9933] rounded-tl-xl" />
+                <div className="absolute top-2 right-2 w-8 h-8 border-t-4 border-r-4 border-[#138808] rounded-tr-xl" />
+                <div className="absolute bottom-2 left-2 w-8 h-8 border-b-4 border-l-4 border-[#138808] rounded-bl-xl" />
+                <div className="absolute bottom-2 right-2 w-8 h-8 border-b-4 border-r-4 border-[#FF9933] rounded-br-xl" />
+                <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-[#FF9933] to-transparent animate-pulse" />
 
-              {/* Corner reticle markers */}
-              <div className="absolute top-2 left-2 w-6 h-6 border-t-4 border-l-4 border-teal-400 rounded-tl-lg" />
-              <div className="absolute top-2 right-2 w-6 h-6 border-t-4 border-r-4 border-teal-400 rounded-tr-lg" />
-              <div className="absolute bottom-2 left-2 w-6 h-6 border-b-4 border-l-4 border-teal-400 rounded-bl-lg" />
-              <div className="absolute bottom-2 right-2 w-6 h-6 border-b-4 border-r-4 border-teal-400 rounded-br-lg" />
+                <Camera size={44} className="text-[#0B1736]/60 mb-2" />
+                <span className="text-xs text-slate-600 text-center font-medium">
+                  {scanning ? 'Decoding QR Signature...' : 'Align camera with CivicFix QR tag'}
+                </span>
 
-              {/* Laser animation beam */}
-              <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-teal-400 to-transparent animate-pulse shadow-[0_0_15px_#2dd4bf]" />
+                {scanning && (
+                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center backdrop-blur-[1px]">
+                    <div className="w-8 h-8 border-3 border-[#138808] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
 
-              <Camera size={44} className="text-teal-400/60 mb-2" />
-              <span className="text-xs text-slate-400 text-center font-medium">
-                {scanning ? 'Decoding QR Signature...' : 'Align camera with CivicFix QR tag'}
-              </span>
+              <div className="w-full max-w-md mt-6 flex gap-2">
+                <div className="relative flex-1">
+                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="text"
+                    value={assetIdInput}
+                    onChange={(e) => setAssetIdInput(e.target.value)}
+                    placeholder="Enter Asset ID (e.g. ROAD-KPG-1028)..."
+                    className="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FF9933]/40 font-mono shadow-sm"
+                    onKeyDown={(e) => e.key === 'Enter' && handleScanSimulation()}
+                  />
+                </div>
+                <button
+                  onClick={() => handleScanSimulation()}
+                  disabled={!assetIdInput.trim() || scanning}
+                  className="primary-btn px-5 py-2.5 disabled:opacity-60"
+                >
+                  Scan
+                </button>
+              </div>
 
-              {scanning && (
-                <div className="absolute inset-0 bg-teal-950/80 flex items-center justify-center">
-                  <div className="w-8 h-8 border-3 border-teal-400 border-t-transparent rounded-full animate-spin" />
+              {errorMsg && (
+                <div className="mt-3 text-xs text-red-600 flex items-center gap-1.5">
+                  <AlertCircle size={14} /> {errorMsg}
                 </div>
               )}
             </div>
-
-            {/* Quick manual Asset ID Search Bar */}
-            <div className="w-full max-w-md mt-6 flex gap-2">
-              <div className="relative flex-1">
-                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={assetIdInput}
-                  onChange={(e) => setAssetIdInput(e.target.value)}
-                  placeholder="Enter Asset ID (e.g. ROAD-KPG-1028)..."
-                  className="w-full pl-10 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono"
-                  onKeyDown={(e) => e.key === 'Enter' && handleScanSimulation()}
-                />
-              </div>
-              <button
-                onClick={() => handleScanSimulation()}
-                disabled={!assetIdInput.trim() || scanning}
-                className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow"
-              >
-                Scan
-              </button>
-            </div>
-
-            {errorMsg && (
-              <div className="mt-3 text-xs text-red-400 flex items-center gap-1.5">
-                <AlertCircle size={14} /> {errorMsg}
-              </div>
-            )}
           </div>
         </div>
 
