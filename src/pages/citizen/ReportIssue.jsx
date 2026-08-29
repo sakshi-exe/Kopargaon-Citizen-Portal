@@ -28,13 +28,13 @@ export default function ReportIssue() {
   const [errors, setErrors] = useState({});
 
   const handlePhoto = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
 
     if (!file) return;
 
     setForm((f) => ({
       ...f,
-      photo: file.name,
+      photo: file,
     }));
 
     const reader = new FileReader();
@@ -53,7 +53,7 @@ export default function ReportIssue() {
       errs.category = 'Please select a category';
     }
 
-    if (!form.description || form.description.length < 10) {
+    if (!form.description || form.description.trim().length < 10) {
       errs.description =
         'Please provide a description (min 10 chars)';
     }
@@ -67,12 +67,20 @@ export default function ReportIssue() {
         'Please click on the map to select a location';
     }
 
-    if (!form.isAnonymous && !form.citizenName) {
+    if (!form.isAnonymous && !form.citizenName.trim()) {
       errs.citizenName =
         'Please enter your name or submit anonymously';
     }
 
     return errs;
+  };
+
+  const getWardName = () => {
+    const selectedWard = wards.find(
+      (ward) => String(ward.id) === String(form.wardId)
+    );
+
+    return selectedWard?.name || form.wardId;
   };
 
   const handleSubmit = async (e) => {
@@ -88,19 +96,47 @@ export default function ReportIssue() {
     setErrors({});
 
     try {
+      /*
+       * issues table:
+       *
+       * id
+       * title
+       * description
+       * category
+       * priority
+       * status
+       * location
+       * citizen_name
+       * latitude
+       * longitude
+       * created_at
+       *
+       * Photo is kept locally for now because the issues table
+       * does not contain a photo URL column.
+       */
+
+      const wardName = getWardName();
+
+      const title =
+        form.description.trim().length > 60
+          ? `${form.description.trim().slice(0, 60)}…`
+          : form.description.trim();
+
+      const citizenName = form.isAnonymous
+        ? 'Anonymous'
+        : form.citizenName.trim();
+
       const { data, error } = await supabase
         .from('issues')
         .insert([
           {
-            title: `${form.category} Issue`,
-            description: form.description,
+            title,
+            description: form.description.trim(),
             category: form.category,
-            priority: 'medium',
-            status: 'pending',
-            location: form.wardId,
-            citizen_name: form.isAnonymous
-              ? 'Anonymous'
-              : form.citizenName,
+            priority: 'Medium',
+            status: 'Reported',
+            location: wardName,
+            citizen_name: citizenName,
             latitude: pickedLoc[0],
             longitude: pickedLoc[1],
           },
@@ -109,18 +145,15 @@ export default function ReportIssue() {
         .single();
 
       if (error) {
-        
         console.error(
-  'SUPABASE ERROR:',
-  JSON.stringify(error, null, 2)
-);
-
-alert(
-  `Supabase Error:\n\n${error.message}\n\nDetails: ${error.details || 'None'}\n\nHint: ${error.hint || 'None'}`
-);
+          'SUPABASE ERROR:',
+          JSON.stringify(error, null, 2)
+        );
 
         alert(
-          `Failed to submit report: ${error.message}`
+          `Failed to submit report:\n\n${error.message}\n\nDetails: ${
+            error.details || 'None'
+          }\n\nHint: ${error.hint || 'None'}`
         );
 
         return;
@@ -131,16 +164,21 @@ alert(
         data
       );
 
-      // Keep the existing local app state working
+      /*
+       * Keep existing local app state working.
+       */
       dispatch({
         type: 'SUBMIT_ISSUE',
         payload: {
           ...form,
+          id: data?.id,
+          title,
+          priority: 'Medium',
+          status: 'Reported',
+          location: wardName,
           lat: pickedLoc[0],
           lng: pickedLoc[1],
-          citizenName: form.isAnonymous
-            ? 'Anonymous'
-            : form.citizenName,
+          citizenName,
         },
       });
 
@@ -186,6 +224,19 @@ alert(
             <button
               onClick={() => {
                 setSubmitted(false);
+
+                setForm({
+                  category: '',
+                  description: '',
+                  wardId: '',
+                  citizenName: '',
+                  isAnonymous: false,
+                  photo: null,
+                });
+
+                setPickedLoc(null);
+                setPhotoPreview(null);
+                setErrors({});
               }}
               className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700"
             >
@@ -554,7 +605,6 @@ alert(
 }
 
 function ClickHandler({ onPick, picked }) {
-
   const map = useMapEvents({
     click(e) {
       onPick([
@@ -565,7 +615,6 @@ function ClickHandler({ onPick, picked }) {
   });
 
   React.useEffect(() => {
-
     if (!picked) return;
 
     const icon = L.divIcon({
@@ -592,7 +641,6 @@ function ClickHandler({ onPick, picked }) {
     return () => {
       map.removeLayer(marker);
     };
-
   }, [picked, map]);
 
   return null;
