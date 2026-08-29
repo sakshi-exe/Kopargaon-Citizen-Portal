@@ -3,153 +3,261 @@ import { supabase } from '../../lib/supabase.js';
 import Header from '../../components/ui/Header.jsx';
 import { StatusBadge } from '../../components/ui/Badge.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
-import { ISSUE_CATEGORIES, ISSUE_STATUSES } from '../../data/issues.js';
-import { formatDate, getRelativeTime } from '../../utils/formatters.js';
+import {
+  ISSUE_CATEGORIES,
+  ISSUE_STATUSES,
+} from '../../data/issues.js';
+import {
+  formatDate,
+  getRelativeTime,
+} from '../../utils/formatters.js';
+
 import {
   Search,
   MapPin,
-  Clock,
   CheckCircle,
   RefreshCw,
   AlertCircle,
 } from 'lucide-react';
 
+
+// ==================================================
+// STATUS FLOW
+// ==================================================
+
 const STATUS_FLOW = {
   Reported: {
     next: 'Under Review',
   },
+
   'Under Review': {
     next: 'Assigned',
   },
+
   Assigned: {
     next: 'In Progress',
   },
+
   'In Progress': {
     next: 'Resolved',
   },
+
   Resolved: {
     next: 'Verified',
   },
+
   Verified: {
     next: null,
   },
+
   Closed: {
     next: null,
   },
 };
 
-const normalizeStatus = (status) => {
-  if (!status) return 'Reported';
 
-  if (String(status).toLowerCase() === 'pending') {
+// ==================================================
+// NORMALIZE STATUS
+// ==================================================
+
+const normalizeStatus = (status) => {
+  if (!status) {
     return 'Reported';
+  }
+
+  const value = String(status).toLowerCase();
+
+  if (value === 'pending') {
+    return 'Reported';
+  }
+
+  if (value === 'under_review') {
+    return 'Under Review';
+  }
+
+  if (value === 'in_progress') {
+    return 'In Progress';
+  }
+
+  if (value === 'reported') {
+    return 'Reported';
+  }
+
+  if (value === 'assigned') {
+    return 'Assigned';
+  }
+
+  if (value === 'resolved') {
+    return 'Resolved';
+  }
+
+  if (value === 'verified') {
+    return 'Verified';
+  }
+
+  if (value === 'closed') {
+    return 'Closed';
   }
 
   return status;
 };
 
+
+// ==================================================
+// MAP SUPABASE ISSUE → UI ISSUE
+// ==================================================
+
 const mapSupabaseIssue = (issue) => ({
   ...issue,
 
-  // DB → UI mapping
-  citizenName: issue.citizen_name || 'Citizen',
+  citizenName:
+    issue.citizen_name || 'Citizen',
+
   submittedDate: issue.created_at
     ? new Date(issue.created_at)
     : new Date(),
 
-  updatedDate: issue.updated_at
-    ? new Date(issue.updated_at)
-    : issue.created_at
+  /*
+   * IMPORTANT:
+   * Your current issues table does NOT have
+   * updated_at.
+   *
+   * Therefore we use created_at as the fallback.
+   */
+  updatedDate: issue.created_at
     ? new Date(issue.created_at)
     : new Date(),
 
   lat: issue.latitude,
   lng: issue.longitude,
 
-  // Your current DB stores the ward/area in `location`
-  wardId: issue.location || 'Unknown Ward',
+  wardId:
+    issue.location || 'Unknown Ward',
 
   isAnonymous:
     !issue.citizen_name ||
-    issue.citizen_name.toLowerCase() === 'anonymous',
+    String(issue.citizen_name).toLowerCase() ===
+      'anonymous',
 
-  displayStatus: normalizeStatus(issue.status),
+  displayStatus:
+    normalizeStatus(issue.status),
 });
 
+
+// ==================================================
+// COMPONENT
+// ==================================================
+
 export default function AdminCitizenIssues() {
+
   const [issues, setIssues] = useState([]);
 
-  const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState('All');
-  const [filterWard, setFilterWard] = useState('All');
-  const [filterCat, setFilterCat] = useState('All');
+  const [search, setSearch] =
+    useState('');
 
-  const [selected, setSelected] = useState(null);
+  const [filterStatus, setFilterStatus] =
+    useState('All');
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [updatingId, setUpdatingId] = useState(null);
+  const [filterWard, setFilterWard] =
+    useState('All');
 
-  // --------------------------------------------------
-  // FETCH ISSUES FROM SUPABASE
-  // --------------------------------------------------
+  const [filterCat, setFilterCat] =
+    useState('All');
+
+  const [selected, setSelected] =
+    useState(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState(null);
+
+  const [updatingId, setUpdatingId] =
+    useState(null);
+
+
+  // ==================================================
+  // FETCH ISSUES
+  // ==================================================
 
   const fetchIssues = async () => {
+
     setLoading(true);
     setError(null);
 
     try {
-      const { data, error: supabaseError } = await supabase
+
+      const {
+        data,
+        error: supabaseError,
+      } = await supabase
         .from('issues')
         .select('*')
         .order('created_at', {
           ascending: false,
         });
 
+
       if (supabaseError) {
+
         console.error(
           'Supabase Admin Issues Error:',
           supabaseError
         );
 
-        setError(supabaseError.message);
-        return;
+        throw supabaseError;
       }
 
-      const mappedIssues = (data || []).map(
-        mapSupabaseIssue
-      );
+
+      const mappedIssues =
+        (data || []).map(
+          mapSupabaseIssue
+        );
+
 
       setIssues(mappedIssues);
+
     } catch (err) {
+
       console.error(
-        'Unexpected Admin Issues Error:',
+        'Admin Issues Error:',
         err
       );
 
       setError(
-        'Unable to load citizen complaints.'
+        err?.message ||
+          'Unable to load citizen complaints.'
       );
+
     } finally {
+
       setLoading(false);
+
     }
   };
+
 
   useEffect(() => {
     fetchIssues();
   }, []);
 
-  // --------------------------------------------------
-  // FILTERS
-  // --------------------------------------------------
+
+  // ==================================================
+  // FILTER OPTIONS
+  // ==================================================
 
   const wardOptions = [
     ...new Set(
       issues
-        .map((issue) => issue.location)
+        .map(
+          (issue) =>
+            issue.location
+        )
         .filter(Boolean)
     ),
   ];
+
 
   const categoryOptions =
     ISSUE_CATEGORIES.length > 0
@@ -157,98 +265,143 @@ export default function AdminCitizenIssues() {
       : [
           ...new Set(
             issues
-              .map((issue) => issue.category)
+              .map(
+                (issue) =>
+                  issue.category
+              )
               .filter(Boolean)
           ),
         ];
 
-  const filtered = issues.filter((issue) => {
-    const description =
-      issue.description || '';
 
-    const category =
-      issue.category || '';
+  // ==================================================
+  // FILTERED ISSUES
+  // ==================================================
 
-    const id =
-      issue.id || '';
+  const filtered =
+    issues.filter((issue) => {
 
-    const citizen =
-      issue.citizenName || '';
+      const description =
+        issue.description || '';
 
-    const location =
-      issue.location || '';
+      const category =
+        issue.category || '';
 
-    const searchValue =
-      search.toLowerCase();
+      const id =
+        String(issue.id || '');
 
-    const matchSearch =
-      !search ||
-      description
-        .toLowerCase()
-        .includes(searchValue) ||
-      category
-        .toLowerCase()
-        .includes(searchValue) ||
-      id
-        .toLowerCase()
-        .includes(searchValue) ||
-      citizen
-        .toLowerCase()
-        .includes(searchValue) ||
-      location
-        .toLowerCase()
-        .includes(searchValue);
+      const citizen =
+        issue.citizenName || '';
 
-    const matchStatus =
-      filterStatus === 'All' ||
-      issue.displayStatus === filterStatus;
+      const location =
+        issue.location || '';
 
-    const matchWard =
-      filterWard === 'All' ||
-      issue.location === filterWard;
+      const searchValue =
+        search.toLowerCase();
 
-    const matchCat =
-      filterCat === 'All' ||
-      issue.category === filterCat;
 
-    return (
-      matchSearch &&
-      matchStatus &&
-      matchWard &&
-      matchCat
-    );
-  });
+      const matchSearch =
+        !search ||
 
-  // --------------------------------------------------
+        description
+          .toLowerCase()
+          .includes(searchValue) ||
+
+        category
+          .toLowerCase()
+          .includes(searchValue) ||
+
+        id
+          .toLowerCase()
+          .includes(searchValue) ||
+
+        citizen
+          .toLowerCase()
+          .includes(searchValue) ||
+
+        location
+          .toLowerCase()
+          .includes(searchValue);
+
+
+      const matchStatus =
+        filterStatus === 'All' ||
+        issue.displayStatus ===
+          filterStatus;
+
+
+      const matchWard =
+        filterWard === 'All' ||
+        issue.location ===
+          filterWard;
+
+
+      const matchCat =
+        filterCat === 'All' ||
+        issue.category ===
+          filterCat;
+
+
+      return (
+        matchSearch &&
+        matchStatus &&
+        matchWard &&
+        matchCat
+      );
+
+    });
+
+
+  // ==================================================
   // ADVANCE STATUS
-  // --------------------------------------------------
+  // ==================================================
 
   const advanceStatus = async (
     issueId,
     currentStatus
   ) => {
-    const next =
-      STATUS_FLOW[currentStatus]?.next;
 
-    if (!next) return;
+    const next =
+      STATUS_FLOW[
+        currentStatus
+      ]?.next;
+
+
+    if (!next) {
+      return;
+    }
+
 
     setUpdatingId(issueId);
 
-    try {
-      const { data: updatedIssue, error: updateError } =
-  await supabase
-    .from('issues')
-    .update({
-      status: next,
-    })
-    .eq('id', issueId)
-    .select('id, status')
-    .single();
 
-console.log('UPDATED ISSUE:', updatedIssue);
-console.log('UPDATE ERROR:', updateError);
+    try {
+
+      /*
+       * IMPORTANT FIX:
+       *
+       * Do NOT use:
+       * .select()
+       * .single()
+       *
+       * We only need to update the row.
+       *
+       * Also do NOT send updated_at because
+       * that column does not exist in your table.
+       */
+
+      const {
+        error: updateError,
+      } = await supabase
+        .from('issues')
+        .update({
+          status: next,
+        })
+        .eq('id', issueId);
+
 
       if (updateError) {
+
         console.error(
           'Supabase Status Update Error:',
           updateError
@@ -261,52 +414,95 @@ console.log('UPDATE ERROR:', updateError);
         return;
       }
 
-      // Update local UI immediately
-      setIssues((currentIssues) =>
-        currentIssues.map((issue) =>
-          issue.id === issueId
-            ? {
-                ...issue,
-                status: next,
-                displayStatus: next,
-                updatedDate: new Date(),
-              }
-            : issue
-        )
+
+      // ==================================================
+      // UPDATE TABLE UI
+      // ==================================================
+
+      setIssues(
+        (currentIssues) =>
+          currentIssues.map(
+            (issue) =>
+              issue.id === issueId
+                ? {
+                    ...issue,
+
+                    status: next,
+
+                    displayStatus: next,
+
+                    /*
+                     * UI-only timestamp.
+                     * Database does not have updated_at.
+                     */
+                    updatedDate:
+                      new Date(),
+                  }
+                : issue
+          )
       );
 
-      // Update modal if open
-      setSelected((currentSelected) => {
-        if (
-          currentSelected?.id !== issueId
-        ) {
-          return currentSelected;
-        }
 
-        return {
-          ...currentSelected,
-          status: next,
-          displayStatus: next,
-          updatedDate: new Date(),
-        };
-      });
+      // ==================================================
+      // UPDATE OPEN MODAL
+      // ==================================================
+
+      setSelected(
+        (currentSelected) => {
+
+          if (
+            !currentSelected ||
+            currentSelected.id !==
+              issueId
+          ) {
+            return currentSelected;
+          }
+
+
+          return {
+            ...currentSelected,
+
+            status: next,
+
+            displayStatus: next,
+
+            updatedDate:
+              new Date(),
+          };
+
+        }
+      );
+
+
+      console.log(
+        `Issue ${issueId} updated to ${next}`
+      );
+
+
     } catch (err) {
+
       console.error(
         'Unexpected status update error:',
         err
       );
 
       alert(
-        'Something went wrong while updating the status.'
+        `Something went wrong while updating the status:\n\n${
+          err?.message || 'Unknown error'
+        }`
       );
+
     } finally {
+
       setUpdatingId(null);
+
     }
   };
 
-  // --------------------------------------------------
+
+  // ==================================================
   // COUNTS
-  // --------------------------------------------------
+  // ==================================================
 
   const unresolvedCount =
     issues.filter(
@@ -315,23 +511,30 @@ console.log('UPDATE ERROR:', updateError);
           'Resolved',
           'Verified',
           'Closed',
-        ].includes(issue.displayStatus)
+        ].includes(
+          issue.displayStatus
+        )
     ).length;
 
-  // --------------------------------------------------
-  // LOADING STATE
-  // --------------------------------------------------
+
+  // ==================================================
+  // LOADING
+  // ==================================================
 
   if (loading) {
+
     return (
       <div className="flex flex-col h-full overflow-hidden">
+
         <Header
           title="Kopargaon Citizen Issues Triage"
           subtitle="Loading complaints from Supabase..."
         />
 
         <div className="flex-1 flex items-center justify-center">
+
           <div className="text-center">
+
             <RefreshCw
               size={30}
               className="mx-auto mb-3 text-blue-500 animate-spin"
@@ -340,25 +543,32 @@ console.log('UPDATE ERROR:', updateError);
             <p className="text-sm text-slate-500 dark:text-slate-400">
               Loading citizen complaints...
             </p>
+
           </div>
+
         </div>
+
       </div>
     );
   }
 
-  // --------------------------------------------------
-  // ERROR STATE
-  // --------------------------------------------------
+
+  // ==================================================
+  // ERROR
+  // ==================================================
 
   if (error) {
+
     return (
       <div className="flex flex-col h-full overflow-hidden">
+
         <Header
           title="Kopargaon Citizen Issues Triage"
           subtitle="Unable to load complaints"
         />
 
         <div className="flex-1 flex items-center justify-center">
+
           <div className="text-center max-w-md px-6">
 
             <AlertCircle
@@ -378,19 +588,25 @@ console.log('UPDATE ERROR:', updateError);
               onClick={fetchIssues}
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold"
             >
+
               <RefreshCw size={14} />
+
               Try Again
+
             </button>
 
           </div>
+
         </div>
+
       </div>
     );
   }
 
-  // --------------------------------------------------
+
+  // ==================================================
   // MAIN UI
-  // --------------------------------------------------
+  // ==================================================
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -400,177 +616,194 @@ console.log('UPDATE ERROR:', updateError);
         subtitle={`${filtered.length} complaints shown · ${unresolvedCount} active unresolved in Kopargaon wards`}
       />
 
-      {/* FILTERS */}
 
-      <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-wrap gap-3 flex-shrink-0">
+      {/* ==================================================
+          FILTER BAR
+      ================================================== */}
 
-        {/* SEARCH */}
+      <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
 
-        <div className="relative flex-1 min-w-44 max-w-md">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
 
-          <Search
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-          />
+          {/* SEARCH */}
 
-          <input
-            value={search}
+          <div className="relative">
+
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+
+            <input
+              value={search}
+              onChange={(e) =>
+                setSearch(
+                  e.target.value
+                )
+              }
+              placeholder="Search complaint..."
+              className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/30"
+            />
+
+          </div>
+
+
+          {/* STATUS */}
+
+          <select
+            value={filterStatus}
             onChange={(e) =>
-              setSearch(e.target.value)
+              setFilterStatus(
+                e.target.value
+              )
             }
-            placeholder="Search by Complaint ID, category, ward, or citizen..."
-            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
-          />
+            className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 outline-none"
+          >
+
+            <option value="All">
+              All Statuses
+            </option>
+
+            {ISSUE_STATUSES.map(
+              (status) => (
+                <option
+                  key={status}
+                  value={status}
+                >
+                  {status}
+                </option>
+              )
+            )}
+
+          </select>
+
+
+          {/* CATEGORY */}
+
+          <select
+            value={filterCat}
+            onChange={(e) =>
+              setFilterCat(
+                e.target.value
+              )
+            }
+            className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 outline-none"
+          >
+
+            <option value="All">
+              All Categories
+            </option>
+
+            {categoryOptions.map(
+              (category) => (
+                <option
+                  key={category}
+                  value={category}
+                >
+                  {category}
+                </option>
+              )
+            )}
+
+          </select>
+
+
+          {/* WARD */}
+
+          <select
+            value={filterWard}
+            onChange={(e) =>
+              setFilterWard(
+                e.target.value
+              )
+            }
+            className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 outline-none"
+          >
+
+            <option value="All">
+              All Kopargaon Wards
+            </option>
+
+            {wardOptions.map(
+              (ward) => (
+                <option
+                  key={ward}
+                  value={ward}
+                >
+                  {ward}
+                </option>
+              )
+            )}
+
+          </select>
 
         </div>
-
-        {/* STATUS */}
-
-        <select
-          value={filterStatus}
-          onChange={(e) =>
-            setFilterStatus(e.target.value)
-          }
-          className="px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 focus:outline-none font-medium"
-        >
-          <option value="All">
-            All Statuses
-          </option>
-
-          {ISSUE_STATUSES.map((status) => (
-            <option
-              key={status}
-              value={status}
-            >
-              {status}
-            </option>
-          ))}
-        </select>
-
-        {/* CATEGORY */}
-
-        <select
-          value={filterCat}
-          onChange={(e) =>
-            setFilterCat(e.target.value)
-          }
-          className="px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 focus:outline-none font-medium"
-        >
-          <option value="All">
-            All Categories
-          </option>
-
-          {categoryOptions.map(
-            (category) => (
-              <option
-                key={category}
-                value={category}
-              >
-                {category}
-              </option>
-            )
-          )}
-        </select>
-
-        {/* WARD */}
-
-        <select
-          value={filterWard}
-          onChange={(e) =>
-            setFilterWard(e.target.value)
-          }
-          className="px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 focus:outline-none font-medium"
-        >
-          <option value="All">
-            All Kopargaon Wards
-          </option>
-
-          {wardOptions.map((ward) => (
-            <option
-              key={ward}
-              value={ward}
-            >
-              {ward}
-            </option>
-          ))}
-        </select>
-
-        {/* REFRESH */}
-
-        <button
-          onClick={fetchIssues}
-          className="flex items-center gap-1.5 px-3 py-2 text-xs bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-semibold"
-          title="Refresh issues"
-        >
-          <RefreshCw size={13} />
-          Refresh
-        </button>
 
       </div>
 
-      {/* EMPTY STATE */}
 
-      {issues.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
+      {/* ==================================================
+          TABLE
+      ================================================== */}
 
-            <AlertCircle
-              size={42}
-              className="mx-auto mb-3 text-slate-300 dark:text-slate-600"
-            />
+      <div className="flex-1 overflow-auto">
 
-            <h3 className="font-semibold text-slate-700 dark:text-slate-300">
-              No citizen complaints yet
-            </h3>
+        <table className="w-full text-left">
 
-            <p className="text-xs text-slate-400 mt-1">
-              Reports submitted by citizens will appear here.
-            </p>
+          <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
 
-          </div>
-        </div>
-      ) : (
-        /* TABLE */
+            <tr>
 
-        <div className="flex-1 overflow-auto">
+              <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Complaint ID
+              </th>
 
-          <table className="w-full text-xs min-w-[950px]">
+              <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Category
+              </th>
 
-            <thead className="sticky top-0 bg-slate-50 dark:bg-slate-900/90 backdrop-blur border-b border-slate-200 dark:border-slate-700 z-10">
+              <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Ward / Area
+              </th>
 
-              <tr className="text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
+              <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Description
+              </th>
 
-                {[
-                  'Complaint ID',
-                  'Category',
-                  'Ward / Area',
-                  'Description',
-                  'Reported By',
-                  'Timeline',
-                  'Status',
-                  'Workflow Action',
-                ].map((heading) => (
-                  <th
-                    key={heading}
-                    className="text-left px-4 py-3.5 whitespace-nowrap"
-                  >
-                    {heading}
-                  </th>
-                ))}
+              <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Reported By
+              </th>
 
-              </tr>
+              <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Timeline
+              </th>
 
-            </thead>
+              <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Status
+              </th>
 
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+              <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Workflow Action
+              </th>
 
-              {filtered.map((issue) => {
+            </tr>
+
+          </thead>
+
+
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+
+            {filtered.map(
+              (issue) => {
 
                 const status =
                   issue.displayStatus;
 
                 const next =
-                  STATUS_FLOW[status]?.next;
+                  STATUS_FLOW[
+                    status
+                  ]?.next;
+
 
                 return (
                   <tr
@@ -581,37 +814,54 @@ console.log('UPDATE ERROR:', updateError);
                     {/* ID */}
 
                     <td className="px-4 py-3.5 font-mono font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
+
                       {issue.id}
+
                     </td>
+
 
                     {/* CATEGORY */}
 
                     <td className="px-4 py-3.5 text-slate-800 dark:text-slate-200 font-medium whitespace-nowrap">
+
                       {issue.category}
+
                     </td>
+
 
                     {/* WARD */}
 
                     <td className="px-4 py-3.5 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+
                       {issue.location ||
                         'Unknown'}
+
                     </td>
+
 
                     {/* DESCRIPTION */}
 
                     <td className="px-4 py-3.5 max-w-[240px]">
+
                       <span className="line-clamp-2 text-slate-700 dark:text-slate-300 leading-snug">
+
                         {issue.description}
+
                       </span>
+
                     </td>
+
 
                     {/* CITIZEN */}
 
                     <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+
                       {issue.isAnonymous
                         ? 'Anonymous'
                         : issue.citizenName}
+
                     </td>
+
 
                     {/* TIMELINE */}
 
@@ -625,15 +875,19 @@ console.log('UPDATE ERROR:', updateError);
 
                     </td>
 
+
                     {/* STATUS */}
 
                     <td className="px-4 py-3.5 whitespace-nowrap">
 
                       <StatusBadge
-                        status={status}
+                        status={
+                          status
+                        }
                       />
 
                     </td>
+
 
                     {/* ACTION */}
 
@@ -643,14 +897,18 @@ console.log('UPDATE ERROR:', updateError);
 
                         <button
                           onClick={() =>
-                            setSelected(issue)
+                            setSelected(
+                              issue
+                            )
                           }
                           className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold"
                         >
                           View
                         </button>
 
+
                         {next && (
+
                           <button
                             disabled={
                               updatingId ===
@@ -664,11 +922,14 @@ console.log('UPDATE ERROR:', updateError);
                             }
                             className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-bold whitespace-nowrap disabled:opacity-50"
                           >
+
                             {updatingId ===
                             issue.id
                               ? 'Updating...'
                               : `→ ${next}`}
+
                           </button>
+
                         )}
 
                       </div>
@@ -677,45 +938,55 @@ console.log('UPDATE ERROR:', updateError);
 
                   </tr>
                 );
-              })}
+              }
+            )}
 
-            </tbody>
+          </tbody>
 
-          </table>
+        </table>
 
-          {/* FILTER EMPTY */}
 
-          {filtered.length === 0 && (
-            <div className="py-16 text-center">
+        {/* EMPTY FILTER */}
 
-              <Search
-                size={32}
-                className="mx-auto mb-3 text-slate-300"
-              />
+        {filtered.length === 0 && (
 
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                No complaints match your filters.
-              </p>
+          <div className="py-16 text-center">
 
-            </div>
-          )}
+            <Search
+              size={32}
+              className="mx-auto mb-3 text-slate-300"
+            />
 
-        </div>
-      )}
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              No complaints match your filters.
+            </p>
 
-      {/* MODAL */}
+          </div>
+
+        )}
+
+      </div>
+
+
+      {/* ==================================================
+          MODAL
+      ================================================== */}
 
       <Modal
         isOpen={!!selected}
         onClose={() =>
           setSelected(null)
         }
-        title={`Citizen Complaint ${selected?.id || ''}`}
+        title={`Citizen Complaint ${
+          selected?.id || ''
+        }`}
         size="md"
       >
 
         {selected && (
+
           <div className="space-y-4 text-xs">
+
 
             {/* DETAILS GRID */}
 
@@ -766,8 +1037,10 @@ console.log('UPDATE ERROR:', updateError);
 
                 [
                   'GPS Coordinates',
-                  selected.latitude != null &&
-                  selected.longitude != null
+                  selected.latitude !=
+                    null &&
+                  selected.longitude !=
+                    null
                     ? `${Number(
                         selected.latitude
                       ).toFixed(
@@ -783,56 +1056,70 @@ console.log('UPDATE ERROR:', updateError);
                   selected.linked_asset_id ||
                     'General Area',
                 ],
-              ].map(([key, value]) => (
+              ].map(
+                ([key, value]) => (
 
-                <div
-                  key={key}
-                  className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700"
-                >
+                  <div
+                    key={key}
+                    className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700"
+                  >
 
-                  <div className="text-[10px] text-slate-400 font-medium">
-                    {key}
+                    <div className="text-[10px] text-slate-400 font-medium">
+                      {key}
+                    </div>
+
+                    <div className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 break-words">
+                      {value}
+                    </div>
+
                   </div>
 
-                  <div className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 break-words">
-                    {value}
-                  </div>
-
-                </div>
-
-              ))}
+                )
+              )}
 
             </div>
 
+
             {/* LOCATION */}
 
-            {selected.latitude != null &&
-              selected.longitude != null && (
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900">
+            {selected.latitude !=
+              null &&
+              selected.longitude !=
+                null && (
 
-                  <MapPin
-                    size={15}
-                    className="text-blue-500"
-                  />
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900">
 
-                  <div>
-                    <div className="text-[10px] text-blue-500 font-semibold uppercase">
-                      Field Coordinates
-                    </div>
+                <MapPin
+                  size={15}
+                  className="text-blue-500"
+                />
 
-                    <div className="font-mono text-blue-700 dark:text-blue-300">
-                      {Number(
-                        selected.latitude
-                      ).toFixed(6)}
-                      ,{' '}
-                      {Number(
-                        selected.longitude
-                      ).toFixed(6)}
-                    </div>
+                <div>
+
+                  <div className="text-[10px] text-blue-500 font-semibold uppercase">
+                    Field Coordinates
+                  </div>
+
+                  <div className="font-mono text-blue-700 dark:text-blue-300">
+
+                    {Number(
+                      selected.latitude
+                    ).toFixed(6)}
+
+                    ,{' '}
+
+                    {Number(
+                      selected.longitude
+                    ).toFixed(6)}
+
                   </div>
 
                 </div>
-              )}
+
+              </div>
+
+            )}
+
 
             {/* DESCRIPTION */}
 
@@ -847,6 +1134,7 @@ console.log('UPDATE ERROR:', updateError);
               </p>
 
             </div>
+
 
             {/* STATUS */}
 
@@ -865,6 +1153,7 @@ console.log('UPDATE ERROR:', updateError);
                 />
 
               </div>
+
 
               {STATUS_FLOW[
                 selected.displayStatus
@@ -905,6 +1194,7 @@ console.log('UPDATE ERROR:', updateError);
             </div>
 
           </div>
+
         )}
 
       </Modal>

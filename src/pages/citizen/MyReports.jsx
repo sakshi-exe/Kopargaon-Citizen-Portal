@@ -2,13 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import Header from '../../components/ui/Header.jsx';
 import { StatusBadge } from '../../components/ui/Badge.jsx';
-import { formatDate, getRelativeTime } from '../../utils/formatters.js';
+import {
+  formatDate,
+  getRelativeTime,
+} from '../../utils/formatters.js';
+
 import {
   MapPin,
   Clock,
   AlertCircle,
   RefreshCw,
 } from 'lucide-react';
+
+
+// ==================================================
+// STATUS ORDER
+// ==================================================
 
 const STEP_ORDER = [
   'Reported',
@@ -19,30 +28,84 @@ const STEP_ORDER = [
   'Verified',
 ];
 
+
+// ==================================================
+// NORMALIZE STATUS
+// ==================================================
+
 const normalizeStatus = (status) => {
   if (!status) return 'Reported';
 
-  const value = String(status).toLowerCase();
+  const value = String(status)
+    .trim()
+    .toLowerCase();
 
-  if (value === 'pending') return 'Reported';
+  if (value === 'pending') {
+    return 'Reported';
+  }
+
+  if (value === 'reported') {
+    return 'Reported';
+  }
+
+  if (
+    value === 'under review' ||
+    value === 'under_review'
+  ) {
+    return 'Under Review';
+  }
+
+  if (value === 'assigned') {
+    return 'Assigned';
+  }
+
+  if (
+    value === 'in progress' ||
+    value === 'in_progress'
+  ) {
+    return 'In Progress';
+  }
+
+  if (value === 'resolved') {
+    return 'Resolved';
+  }
+
+  if (value === 'verified') {
+    return 'Verified';
+  }
 
   return status;
 };
 
-function StatusTimeline({ currentStatus }) {
-  const status = normalizeStatus(currentStatus);
 
-  const currentIdx = STEP_ORDER.indexOf(status);
+// ==================================================
+// STATUS TIMELINE
+// ==================================================
+
+function StatusTimeline({ currentStatus }) {
+
+  const status =
+    normalizeStatus(currentStatus);
+
+  const currentIdx =
+    STEP_ORDER.indexOf(status);
 
   return (
     <div className="flex items-center gap-1 mt-2 flex-wrap">
+
       {STEP_ORDER.map((s, i) => {
-        const done = currentIdx >= i;
-        const current = status === s;
+
+        const done =
+          currentIdx >= i;
+
+        const current =
+          status === s;
 
         return (
           <React.Fragment key={s}>
+
             <div className="flex flex-col items-center">
+
               <div
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
                   current
@@ -52,7 +115,9 @@ function StatusTimeline({ currentStatus }) {
                     : 'bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-400'
                 }`}
               >
-                {done && !current ? '✓' : i + 1}
+                {done && !current
+                  ? '✓'
+                  : i + 1}
               </div>
 
               <span
@@ -62,11 +127,15 @@ function StatusTimeline({ currentStatus }) {
                     : 'text-slate-400'
                 }`}
               >
-                {s === 'Under Review' ? 'Review' : s}
+                {s === 'Under Review'
+                  ? 'Review'
+                  : s}
               </span>
+
             </div>
 
-            {i < STEP_ORDER.length - 1 && (
+            {i <
+              STEP_ORDER.length - 1 && (
               <div
                 className={`flex-1 h-0.5 min-w-[8px] mb-3 ${
                   currentIdx > i
@@ -75,56 +144,62 @@ function StatusTimeline({ currentStatus }) {
                 }`}
               />
             )}
+
           </React.Fragment>
         );
       })}
+
     </div>
   );
 }
 
+
+// ==================================================
+// MY REPORTS
+// ==================================================
+
 export default function MyReports() {
-  const [issues, setIssues] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+
+  const [issues, setIssues] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState(null);
+
+
+  // ==================================================
+  // FETCH CURRENT USER REPORTS
+  // ==================================================
 
   const fetchIssues = async () => {
-    setLoading(true);
-    setError(null);
 
     try {
-      console.log('==============================');
-      console.log('MY REPORTS: FETCH START');
-      console.log('==============================');
 
-      // --------------------------------------------------
-      // 1. GET CURRENTLY LOGGED-IN USER
-      // --------------------------------------------------
+      setError(null);
 
       const {
-        data: { user },
+        data: {
+          user,
+        },
         error: userError,
       } = await supabase.auth.getUser();
 
-      console.log('CURRENT AUTH USER:', user);
-      console.log('CURRENT USER ID:', user?.id);
-      console.log('AUTH ERROR:', userError);
 
       if (userError) {
         throw userError;
       }
 
+
       if (!user) {
-        console.error('NO LOGGED-IN USER FOUND');
 
         setIssues([]);
-        setError('No logged-in user found. Please sign in again.');
 
         return;
       }
 
-      // --------------------------------------------------
-      // 2. FETCH ISSUES
-      // --------------------------------------------------
 
       const {
         data,
@@ -132,49 +207,29 @@ export default function MyReports() {
       } = await supabase
         .from('issues')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', {
           ascending: false,
         });
 
-      console.log('MY REPORTS DATA:', data);
-      console.log('MY REPORTS COUNT:', data?.length);
-      console.log('MY REPORTS ERROR:', supabaseError);
 
       if (supabaseError) {
+
+        console.error(
+          'Supabase My Reports error:',
+          supabaseError
+        );
+
         throw supabaseError;
       }
 
-      // --------------------------------------------------
-      // 3. TEMPORARY DEBUG
-      // --------------------------------------------------
-
-      if (data && data.length > 0) {
-        console.log('------------------------------');
-        console.log('REPORT USER IDS:');
-
-        data.forEach((issue) => {
-          console.log({
-            reportId: issue.id,
-            description: issue.description,
-            reportUserId: issue.user_id,
-            currentUserId: user.id,
-            matches:
-              issue.user_id === user.id,
-          });
-        });
-
-        console.log('------------------------------');
-      }
-
-      // --------------------------------------------------
-      // 4. SHOW REPORTS
-      // --------------------------------------------------
 
       setIssues(data || []);
 
     } catch (err) {
+
       console.error(
-        'MY REPORTS ERROR:',
+        'My Reports error:',
         err
       );
 
@@ -183,41 +238,113 @@ export default function MyReports() {
           'Unable to load your reports.'
       );
 
-      setIssues([]);
-
     } finally {
-      setLoading(false);
 
-      console.log('==============================');
-      console.log('MY REPORTS: FETCH END');
-      console.log('==============================');
+      setLoading(false);
     }
   };
 
-  // --------------------------------------------------
-  // LOAD REPORTS ON PAGE OPEN
-  // --------------------------------------------------
+
+  // ==================================================
+  // INITIAL LOAD + REALTIME
+  // ==================================================
 
   useEffect(() => {
-    fetchIssues();
+
+    let channel = null;
+
+    const setupRealtime = async () => {
+
+      // Initial fetch
+      await fetchIssues();
+
+
+      // Get current user
+      const {
+        data: {
+          user,
+        },
+      } = await supabase.auth.getUser();
+
+
+      if (!user) {
+        return;
+      }
+
+
+      // Listen for INSERT / UPDATE / DELETE
+      channel = supabase
+        .channel(
+          `citizen-my-reports-${user.id}`
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'issues',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+
+            console.log(
+              'My Reports realtime update:',
+              payload
+            );
+
+            // Re-fetch from DB.
+            // This keeps the exact same UI
+            // while updating the actual DB data.
+            fetchIssues();
+          }
+        )
+        .subscribe((status) => {
+
+          console.log(
+            'My Reports realtime status:',
+            status
+          );
+
+        });
+
+    };
+
+
+    setupRealtime();
+
+
+    return () => {
+
+      if (channel) {
+
+        supabase.removeChannel(
+          channel
+        );
+
+      }
+
+    };
+
   }, []);
 
-  return (
-    <div className="flex flex-col h-full overflow-hidden">
 
-      {/* HEADER */}
+  // ==================================================
+  // LOADING
+  // ==================================================
 
-      <Header
-        title="My Reports"
-        subtitle="Track the status of your submitted civic issues"
-      />
+  if (loading) {
 
-      <div className="flex-1 overflow-y-auto p-6">
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
 
-        {/* LOADING */}
+        <Header
+          title="My Reports"
+          subtitle="Track the status of your submitted civic issues"
+        />
 
-        {loading && (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
+        <div className="flex-1 flex items-center justify-center">
+
+          <div className="flex flex-col items-center justify-center text-center">
 
             <RefreshCw
               size={28}
@@ -229,12 +356,31 @@ export default function MyReports() {
             </p>
 
           </div>
-        )}
 
-        {/* ERROR */}
+        </div>
 
-        {!loading && error && (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
+      </div>
+    );
+  }
+
+
+  // ==================================================
+  // ERROR
+  // ==================================================
+
+  if (error) {
+
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+
+        <Header
+          title="My Reports"
+          subtitle="Track the status of your submitted civic issues"
+        />
+
+        <div className="flex-1 flex items-center justify-center">
+
+          <div className="flex flex-col items-center justify-center h-64 text-center px-6">
 
             <AlertCircle
               size={40}
@@ -253,184 +399,225 @@ export default function MyReports() {
             </button>
 
           </div>
+
+        </div>
+
+      </div>
+    );
+  }
+
+
+  // ==================================================
+  // MAIN UI
+  // ==================================================
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+
+      <Header
+        title="My Reports"
+        subtitle="Track the status of your submitted civic issues"
+      />
+
+      <div className="flex-1 overflow-y-auto p-6">
+
+
+        {/* ==================================================
+            EMPTY
+        ================================================== */}
+
+        {issues.length === 0 && (
+
+          <div className="flex flex-col items-center justify-center h-64 text-center">
+
+            <AlertCircle
+              size={40}
+              className="text-slate-300 dark:text-slate-600 mb-3"
+            />
+
+            <p className="text-slate-500 dark:text-slate-400">
+              No reports yet.
+            </p>
+
+            <a
+              href="/citizen/report"
+              className="mt-3 text-sm text-teal-600 dark:text-teal-400 hover:underline"
+            >
+              Report your first issue →
+            </a>
+
+          </div>
         )}
 
-        {/* EMPTY */}
 
-        {!loading &&
-          !error &&
-          issues.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-64 text-center">
+        {/* ==================================================
+            REPORTS
+        ================================================== */}
 
-              <AlertCircle
-                size={40}
-                className="text-slate-300 dark:text-slate-600 mb-3"
-              />
+        {issues.length > 0 && (
 
-              <p className="text-slate-500 dark:text-slate-400">
-                No reports yet.
-              </p>
+          <div className="space-y-4">
 
-              <a
-                href="/citizen/report"
-                className="mt-3 text-sm text-teal-600 dark:text-teal-400 hover:underline"
-              >
-                Report your first issue →
-              </a>
+            {issues.map((issue) => {
 
-            </div>
-          )}
+              const displayStatus =
+                normalizeStatus(
+                  issue.status
+                );
 
-        {/* REPORTS */}
 
-        {!loading &&
-          !error &&
-          issues.length > 0 && (
-            <div className="space-y-4">
+              const submittedDate =
+                issue.created_at
+                  ? new Date(
+                      issue.created_at
+                    )
+                  : null;
 
-              {issues.map((issue) => {
 
-                const displayStatus =
-                  normalizeStatus(issue.status);
+              return (
 
-                const submittedDate =
-                  issue.created_at
-                    ? new Date(issue.created_at)
-                    : null;
+                <div
+                  key={issue.id}
+                  className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5"
+                >
 
-                return (
-                  <div
-                    key={issue.id}
-                    className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5"
-                  >
+                  {/* HEADER */}
 
-                    {/* HEADER */}
+                  <div className="flex items-start justify-between gap-3 mb-2">
 
-                    <div className="flex items-start justify-between gap-3 mb-2">
+                    <div>
 
-                      <div className="min-w-0">
+                      <div className="flex items-center gap-2">
 
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-mono text-slate-400">
+                          {issue.id}
+                        </span>
 
-                          <span className="text-xs font-mono text-slate-400">
-                            {issue.id}
-                          </span>
+                        <span className="text-xs text-slate-400">
+                          ·
+                        </span>
 
-                          <span className="text-xs text-slate-400">
-                            ·
-                          </span>
-
-                          <span className="text-xs text-slate-500">
-                            {issue.category || 'Civic Issue'}
-                          </span>
-
-                        </div>
-
-                        <h3 className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
-
-                          {issue.description
-                            ? issue.description.length > 80
-                              ? `${issue.description.slice(
-                                  0,
-                                  80
-                                )}…`
-                              : issue.description
-                            : 'No description'}
-
-                        </h3>
+                        <span className="text-xs text-slate-500">
+                          {issue.category}
+                        </span>
 
                       </div>
 
-                      <StatusBadge
-                        status={displayStatus}
-                      />
+
+                      <h3 className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+
+                        {issue.description &&
+                        issue.description.length > 80
+                          ? `${issue.description.slice(
+                              0,
+                              80
+                            )}…`
+                          : issue.description}
+
+                      </h3>
 
                     </div>
 
-                    {/* META */}
 
-                    <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 mb-3 flex-wrap">
-
-                      <span className="flex items-center gap-1">
-
-                        <MapPin size={11} />
-
-                        {issue.location ||
-                          'Location selected'}
-
-                      </span>
-
-                      {submittedDate && (
-                        <span className="flex items-center gap-1">
-
-                          <Clock size={11} />
-
-                          {getRelativeTime(
-                            submittedDate
-                          )}
-
-                        </span>
-                      )}
-
-                      {submittedDate && (
-                        <span>
-
-                          Submitted:{' '}
-
-                          {formatDate(
-                            submittedDate
-                          )}
-
-                        </span>
-                      )}
-
-                    </div>
-
-                    {/* COORDINATES */}
-
-                    {issue.latitude != null &&
-                      issue.longitude != null && (
-                        <div className="text-[11px] text-slate-400 mb-3">
-
-                          📍{' '}
-
-                          {Number(
-                            issue.latitude
-                          ).toFixed(5)}
-
-                          ,{' '}
-
-                          {Number(
-                            issue.longitude
-                          ).toFixed(5)}
-
-                        </div>
-                      )}
-
-                    {/* CITIZEN */}
-
-                    {issue.citizen_name && (
-                      <div className="text-[11px] text-slate-400 mb-2">
-                        Reported by: {issue.citizen_name}
-                      </div>
-                    )}
-
-                    {/* TIMELINE */}
-
-                    <StatusTimeline
-                      currentStatus={
+                    <StatusBadge
+                      status={
                         displayStatus
                       }
                     />
 
                   </div>
-                );
-              })}
 
-            </div>
-          )}
+
+                  {/* META */}
+
+                  <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 mb-3 flex-wrap">
+
+                    <span className="flex items-center gap-1">
+
+                      <MapPin size={11} />
+
+                      {issue.location ||
+                        'Location selected'}
+
+                    </span>
+
+
+                    {submittedDate && (
+
+                      <span className="flex items-center gap-1">
+
+                        <Clock size={11} />
+
+                        {getRelativeTime(
+                          submittedDate
+                        )}
+
+                      </span>
+
+                    )}
+
+
+                    {submittedDate && (
+
+                      <span>
+
+                        Submitted:{' '}
+
+                        {formatDate(
+                          submittedDate
+                        )}
+
+                      </span>
+
+                    )}
+
+                  </div>
+
+
+                  {/* COORDINATES */}
+
+                  {issue.latitude != null &&
+                    issue.longitude != null && (
+
+                    <div className="text-[11px] text-slate-400 mb-3">
+
+                      📍{' '}
+
+                      {Number(
+                        issue.latitude
+                      ).toFixed(5)}
+
+                      ,{' '}
+
+                      {Number(
+                        issue.longitude
+                      ).toFixed(5)}
+
+                    </div>
+
+                  )}
+
+
+                  {/* STATUS TIMELINE */}
+
+                  <StatusTimeline
+                    currentStatus={
+                      displayStatus
+                    }
+                  />
+
+                </div>
+
+              );
+
+            })}
+
+          </div>
+
+        )}
 
       </div>
+
     </div>
   );
 }
