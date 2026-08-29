@@ -3,10 +3,12 @@ import { supabase } from '../../lib/supabase.js';
 import Header from '../../components/ui/Header.jsx';
 import { StatusBadge } from '../../components/ui/Badge.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
+
 import {
   ISSUE_CATEGORIES,
   ISSUE_STATUSES,
 } from '../../data/issues.js';
+
 import {
   formatDate,
   getRelativeTime,
@@ -65,6 +67,7 @@ const STATUS_FLOW = {
 // ==================================================
 
 const normalizeStatus = (status) => {
+
   if (!status) {
     return 'Reported';
   }
@@ -122,11 +125,10 @@ const mapSupabaseIssue = (issue) => ({
     : new Date(),
 
   /*
-   * IMPORTANT:
-   * Your current issues table does NOT have
+   * Current issues table does not have
    * updated_at.
    *
-   * Therefore we use created_at as the fallback.
+   * Therefore created_at is used as fallback.
    */
   updatedDate: issue.created_at
     ? new Date(issue.created_at)
@@ -225,10 +227,10 @@ export default function AdminCitizenIssues() {
             ...issue,
 
             /*
-             * Priority is calculated from the
-             * actual citizen complaint.
+             * Priority is calculated from
+             * the actual Supabase complaint.
              *
-             * No static issue data is used here.
+             * No static/demo issue data is used.
              */
             aiPriority:
               computeIssuePriority(issue),
@@ -256,6 +258,10 @@ export default function AdminCitizenIssues() {
     }
   };
 
+
+  // ==================================================
+  // INITIAL LOAD
+  // ==================================================
 
   useEffect(() => {
     fetchIssues();
@@ -397,16 +403,11 @@ export default function AdminCitizenIssues() {
     try {
 
       /*
-       * IMPORTANT FIX:
+       * Only update status.
        *
-       * Do NOT use:
-       * .select()
-       * .single()
-       *
-       * We only need to update the row.
-       *
-       * Also do NOT send updated_at because
-       * that column does not exist in your table.
+       * No .select()
+       * No .single()
+       * No updated_at
        */
 
       const {
@@ -450,12 +451,19 @@ export default function AdminCitizenIssues() {
 
                     displayStatus: next,
 
-                    /*
-                     * UI-only timestamp.
-                     * Database does not have updated_at.
-                     */
                     updatedDate:
                       new Date(),
+
+                    /*
+                     * Recalculate priority after
+                     * status change because the issue
+                     * itself has changed.
+                     */
+                    aiPriority:
+                      computeIssuePriority({
+                        ...issue,
+                        status: next,
+                      }),
                   }
                 : issue
           )
@@ -487,6 +495,12 @@ export default function AdminCitizenIssues() {
 
             updatedDate:
               new Date(),
+
+            aiPriority:
+              computeIssuePriority({
+                ...currentSelected,
+                status: next,
+              }),
           };
 
         }
@@ -798,6 +812,10 @@ export default function AdminCitizenIssues() {
               </th>
 
               <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                AI Priority
+              </th>
+
+              <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 Status
               </th>
 
@@ -822,6 +840,9 @@ export default function AdminCitizenIssues() {
                   STATUS_FLOW[
                     status
                   ]?.next;
+
+                const priority =
+                  issue.aiPriority;
 
 
                 return (
@@ -891,6 +912,51 @@ export default function AdminCitizenIssues() {
                             issue.submittedDate
                           )
                         : '—'}
+
+                    </td>
+
+
+                    {/* AI PRIORITY */}
+
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+
+                      {priority ? (
+
+                        <button
+                          onClick={() =>
+                            setSelected(issue)
+                          }
+                          className="flex items-center gap-2 group"
+                          title="View AI priority assessment"
+                        >
+
+                          <span
+                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                              priority.tier === 'CRITICAL'
+                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                                : priority.tier === 'HIGH'
+                                ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
+                                : priority.tier === 'MEDIUM'
+                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                                : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                            }`}
+                          >
+                            {priority.tier}
+                          </span>
+
+                          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                            {priority.score}/100
+                          </span>
+
+                        </button>
+
+                      ) : (
+
+                        <span className="text-xs text-slate-400">
+                          —
+                        </span>
+
+                      )}
 
                     </td>
 
@@ -1007,7 +1073,9 @@ export default function AdminCitizenIssues() {
           <div className="space-y-4 text-xs">
 
 
-            {/* DETAILS GRID */}
+            {/* ==================================================
+                DETAILS GRID
+            ================================================== */}
 
             <div className="grid grid-cols-2 gap-3">
 
@@ -1099,7 +1167,9 @@ export default function AdminCitizenIssues() {
             </div>
 
 
-            {/* LOCATION */}
+            {/* ==================================================
+                LOCATION
+            ================================================== */}
 
             {selected.latitude !=
               null &&
@@ -1140,7 +1210,9 @@ export default function AdminCitizenIssues() {
             )}
 
 
-            {/* DESCRIPTION */}
+            {/* ==================================================
+                DESCRIPTION
+            ================================================== */}
 
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
 
@@ -1155,7 +1227,189 @@ export default function AdminCitizenIssues() {
             </div>
 
 
-            {/* STATUS */}
+            {/* ==================================================
+                AI PRIORITY ASSESSMENT
+            ================================================== */}
+
+            {selected.aiPriority && (
+
+              <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900">
+
+                {/* HEADER */}
+
+                <div className="flex items-center justify-between mb-3">
+
+                  <div>
+
+                    <div className="text-[10px] text-indigo-500 font-bold uppercase tracking-wider">
+                      AI Priority Assessment
+                    </div>
+
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Calculated from live complaint data
+                    </div>
+
+                  </div>
+
+
+                  <div className="text-right">
+
+                    <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
+
+                      {selected.aiPriority.score}
+
+                      <span className="text-xs font-semibold text-slate-400">
+                        /100
+                      </span>
+
+                    </div>
+
+                    <span
+                      className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        selected.aiPriority.tier === 'CRITICAL'
+                          ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                          : selected.aiPriority.tier === 'HIGH'
+                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
+                          : selected.aiPriority.tier === 'MEDIUM'
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                          : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                      }`}
+                    >
+                      {selected.aiPriority.tier}
+                    </span>
+
+                  </div>
+
+                </div>
+
+
+                {/* FACTOR BREAKDOWN */}
+
+                <div className="grid grid-cols-2 gap-2">
+
+                  {[
+                    [
+                      'Severity',
+                      selected.aiPriority.factors.severity,
+                    ],
+
+                    [
+                      'Safety Risk',
+                      selected.aiPriority.factors.safetyRisk,
+                    ],
+
+                    [
+                      'Location Criticality',
+                      selected.aiPriority.factors.locationCriticality,
+                    ],
+
+                    [
+                      'Urgency',
+                      selected.aiPriority.factors.urgency,
+                    ],
+
+                    [
+                      'Waiting Time',
+                      selected.aiPriority.factors.waitingTime,
+                    ],
+
+                    [
+                      'Community Impact',
+                      selected.aiPriority.factors.contextImpact,
+                    ],
+
+                  ].map(
+                    ([label, value]) => (
+
+                      <div
+                        key={label}
+                        className="p-2 rounded-lg bg-white/70 dark:bg-slate-900/50 border border-indigo-100 dark:border-indigo-900/50"
+                      >
+
+                        <div className="flex items-center justify-between mb-1">
+
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                            {label}
+                          </span>
+
+                          <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200">
+                            {value}
+                          </span>
+
+                        </div>
+
+
+                        <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+
+                          <div
+                            className="h-full rounded-full bg-indigo-500"
+                            style={{
+                              width: `${Math.min(
+                                value,
+                                100
+                              )}%`,
+                            }}
+                          />
+
+                        </div>
+
+                      </div>
+
+                    )
+                  )}
+
+                </div>
+
+
+                {/* REASONS */}
+
+                {selected.aiPriority.reasons?.length > 0 && (
+
+                  <div className="mt-3">
+
+                    <div className="text-[10px] text-indigo-500 font-bold uppercase tracking-wider mb-1.5">
+                      Why this score?
+                    </div>
+
+                    <ul className="space-y-1">
+
+                      {selected.aiPriority.reasons
+                        .slice(0, 5)
+                        .map(
+                          (reason, index) => (
+
+                            <li
+                              key={`${reason}-${index}`}
+                              className="flex gap-2 text-[11px] text-slate-600 dark:text-slate-400"
+                            >
+
+                              <span className="text-indigo-500">
+                                •
+                              </span>
+
+                              <span>
+                                {reason}
+                              </span>
+
+                            </li>
+
+                          )
+                        )}
+
+                    </ul>
+
+                  </div>
+
+                )}
+
+              </div>
+
+            )}
+
+
+            {/* ==================================================
+                STATUS
+            ================================================== */}
 
             <div className="flex items-center justify-between pt-2">
 
