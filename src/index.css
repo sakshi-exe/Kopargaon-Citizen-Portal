@@ -6,8 +6,8 @@
 
 
 /* =========================================================
-   CIVICFIX — TRICOLOUR GRADIENT THEME
-   Rich Orange → White → Green
+   CIVICFIX — LIGHT TRI-COLOUR THEME
+   Orange → White → Green
 ========================================================= */
 
 @layer base {
@@ -19,6 +19,7 @@
   html {
     font-family: 'Inter', system-ui, sans-serif;
     min-height: 100%;
+    background: #fff;
   }
 
   body {
@@ -26,76 +27,256 @@
     padding: 0;
     min-height: 100vh;
 
-    color: #0f172a;
+    color: #1e293b;
 
     /*
-      MAIN TRICOLOUR BACKGROUND
-
-      Left   → richer saffron/orange
-      Center → clean white
-      Right  → richer green
+      Main CivicFix tri-colour background.
+      Slightly stronger orange + green than the previous version.
     */
     background:
       linear-gradient(
-        115deg,
-        #ffb347 0%,
-        #ffd08a 16%,
-        #fff5e6 30%,
-        #ffffff 47%,
-        #ffffff 57%,
-        #edf8ef 70%,
-        #c8edcf 84%,
-        #9fdfa9 100%
+        120deg,
+        #ffe3c2 0%,
+        #fff0df 18%,
+        #fffaf4 34%,
+        #ffffff 48%,
+        #ffffff 56%,
+        #f5fbf6 70%,
+        #e1f3e5 86%,
+        #ccebd3 100%
       );
 
     background-attachment: fixed;
+    background-repeat: no-repeat;
     background-size: cover;
   }
 
   #root {
     min-height: 100vh;
 
-    /*
-      Adds a second soft layer so the gradient
-      remains visible throughout the application.
-    */
     background:
       linear-gradient(
-        115deg,
-        rgba(255, 179, 71, 0.42) 0%,
-        rgba(255, 208, 138, 0.18) 18%,
-        rgba(255, 255, 255, 0.05) 45%,
-        rgba(255, 255, 255, 0.05) 58%,
-        rgba(200, 237, 207, 0.18) 80%,
-        rgba(159, 223, 169, 0.42) 100%
+        120deg,
+        rgba(255, 227, 194, 0.58) 0%,
+        rgba(255, 250, 244, 0.38) 30%,
+        rgba(255, 255, 255, 0.20) 50%,
+        rgba(245, 251, 246, 0.38) 72%,
+        rgba(204, 235, 211, 0.58) 100%
       );
 
     background-attachment: fixed;
-    background-size: cover;
   }
 
   ::selection {
-    background: #bbf7d0;
-    color: #14532d;
+    background: #fed7aa;
+    color: #7c2d12;
   }
 
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
   }
 
   ::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.65);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #b7c8bc;
+    background: #cbd5e1;
     border-radius: 999px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #8fa99a;
+    background: #94a3b8;
   }
+}
+
+
+/* =========================================================
+   GLOBAL LIGHT SURFACES
+   Remove accidental dark-mode backgrounds
+========================================================= */
+
+@layer utilities {
+
+  /* Common slate backgrounds */
+
+  .bg-slate-50 {
+    background-color: rgba(255, 255, 255, 0.72) !important;
+  }
+
+  .bg-slate-100 {
+    background-color: rgba(255, 255, 255, 0.78) !important;
+  }
+
+  .bg-white {
+    background-color: rgba(255, 255, 255, 0.94) !important;
+  }
+
+
+  /* -------------------------------------------------------
+     DARK MODE BACKGROUNDS DISABLED
+  ------------------------------------------------------- */
+
+  .dark\:bg-slate-950 {
+    background-color: transparent !important;
+  }
+
+  .dark\:bg-slate-900 {
+    background-color: rgba(255, 255, 255, 0.96) !important;
+  }
+
+  .dark\:bg-slate-800 {
+    background-color: rgba(248, 250, 252, 0.96) !important;
+  }
+
+  .dark\:bg-slate-700 {
+    background-color: rgba(241, 245, 249, 0.96) !important;
+  }
+
+
+  /* -------------------------------------------------------
+     DARK MODE TEXT → LIGHT THEME TEXT
+  ------------------------------------------------------- */
+
+  .dark\:text-white {
+    color: #0f172a !important;
+  }
+
+  .dark\:text-slate-100 {
+    color: #1e293b !important;
+  }
+
+  .dark\:text-slate-200 {
+    color: #334155 !important;
+  }
+
+  .dark\:text-slate-300 {
+    color: #475569 !important;
+  }
+
+  .dark\:text-slate-400 {
+    color: #64748b !important;
+  }
+
+  .dark\:text-slate-500 {
+    color: #64748b !important;
+  }
+
+
+  /* -------------------------------------------------------
+     DARK MODE BORDERS
+  ------------------------------------------------------- */
+
+  .dark\:border-slate-800 {
+    border-color: #e2e8f0 !important;
+  }
+
+  .dark\:border-slate-700 {
+    border-color: #e2e8f0 !important;
+  }
+
+  .dark\:border-slate-600 {
+    border-color: #cbd5e1 !important;
+  }
+
+
+  /* -------------------------------------------------------
+     DARK MODE HOVERS
+  ------------------------------------------------------- */
+
+  .dark\:hover\:bg-slate-800:hover {
+    background-color: #f8fafc !important;
+  }
+
+  .dark\:hover\:bg-slate-700:hover {
+    background-color: #f1f5f9 !important;
+  }
+
+  .dark\:hover\:text-white:hover {
+    color: #0f172a !important;
+  }
+}
+
+
+/* =========================================================
+   TRICOLOUR BACKGROUND UTILITIES
+========================================================= */
+
+.civic-gradient {
+  background:
+    linear-gradient(
+      120deg,
+      #ffe3c2 0%,
+      #fff0df 22%,
+      #ffffff 47%,
+      #ffffff 55%,
+      #f2faf4 76%,
+      #ccebd3 100%
+    );
+}
+
+.civic-gradient-soft {
+  background:
+    linear-gradient(
+      120deg,
+      rgba(255, 227, 194, 0.78) 0%,
+      rgba(255, 248, 239, 0.60) 28%,
+      rgba(255, 255, 255, 0.82) 50%,
+      rgba(242, 250, 244, 0.65) 74%,
+      rgba(204, 235, 211, 0.78) 100%
+    );
+}
+
+.civic-tricolour-border {
+  border-image:
+    linear-gradient(
+      90deg,
+      #ff9933,
+      #ffffff,
+      #138808
+    )
+    1;
+}
+
+.civic-tricolour-line {
+  background:
+    linear-gradient(
+      90deg,
+      #ff9933 0%,
+      #ff9933 33%,
+      #ffffff 33%,
+      #ffffff 66%,
+      #138808 66%,
+      #138808 100%
+    );
+}
+
+
+/* =========================================================
+   GLASS / LIGHT CARDS
+========================================================= */
+
+.civic-card {
+  background: rgba(255, 255, 255, 0.90);
+  border: 1px solid rgba(226, 232, 240, 0.90);
+
+  box-shadow:
+    0 10px 35px rgba(15, 23, 42, 0.08);
+
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.civic-card-soft {
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(226, 232, 240, 0.80);
+
+  box-shadow:
+    0 8px 28px rgba(15, 23, 42, 0.06);
+
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 
@@ -109,10 +290,12 @@
 }
 
 .leaflet-popup-content-wrapper {
-  border-radius: 12px !important;
+  border-radius: 14px !important;
+
+  background: rgba(255, 255, 255, 0.98) !important;
 
   box-shadow:
-    0 4px 24px rgba(15, 23, 42, 0.12) !important;
+    0 8px 30px rgba(15, 23, 42, 0.14) !important;
 
   padding: 0 !important;
 }
@@ -120,6 +303,10 @@
 .leaflet-popup-content {
   margin: 0 !important;
   min-width: 240px;
+}
+
+.leaflet-popup-tip {
+  background: #ffffff !important;
 }
 
 .leaflet-popup-tip-container {
@@ -130,7 +317,7 @@
   border: none !important;
 
   box-shadow:
-    0 2px 8px rgba(15, 23, 42, 0.12) !important;
+    0 3px 12px rgba(15, 23, 42, 0.12) !important;
 }
 
 .leaflet-control-zoom a {
@@ -141,7 +328,7 @@
   line-height: 36px !important;
 
   font-size: 18px !important;
-  font-weight: 300 !important;
+  font-weight: 400 !important;
 
   color: #334155 !important;
   background: #ffffff !important;
@@ -149,6 +336,11 @@
   margin-bottom: 2px;
 
   border: 1px solid #e2e8f0 !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: #f8fafc !important;
+  color: #0f172a !important;
 }
 
 
@@ -165,10 +357,10 @@
 
   transform: rotate(-45deg);
 
-  border: 2px solid rgba(255, 255, 255, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.95);
 
   box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.18);
+    0 3px 10px rgba(15, 23, 42, 0.18);
 }
 
 .custom-marker-inner {
@@ -225,6 +417,14 @@
   font-family: 'Inter', sans-serif !important;
 }
 
+.recharts-cartesian-axis-tick-value {
+  fill: #64748b;
+}
+
+.recharts-text {
+  fill: #475569;
+}
+
 
 /* =========================================================
    SIDEBAR
@@ -247,191 +447,237 @@
 
 
 /* =========================================================
-   SOFT SURFACES
+   SOFT SLATE SURFACES
 ========================================================= */
 
-.bg-slate-50 {
-  background-color: rgba(248, 250, 252, 0.78) !important;
+.border-slate-200 {
+  border-color: rgba(226, 232, 240, 0.90) !important;
 }
 
-.border-slate-200 {
-  border-color: rgba(226, 232, 240, 0.85) !important;
+.border-slate-100 {
+  border-color: rgba(241, 245, 249, 0.95) !important;
 }
 
 
 /* =========================================================
-   KEEP APPLICATION CARDS LIGHT
+   REMOVE DARK SURFACE APPEARANCE
 ========================================================= */
 
-.dark\:bg-slate-950 {
-  background-color: transparent !important;
+.bg-slate-900 {
+  background-color: rgba(255, 255, 255, 0.96) !important;
 }
 
-.dark\:bg-slate-900 {
-  background-color: rgba(255, 255, 255, 0.94) !important;
-}
-
-.dark\:bg-slate-800 {
-  background-color: rgba(255, 255, 255, 0.94) !important;
-}
-
-.dark\:bg-slate-700 {
+.bg-slate-800 {
   background-color: rgba(248, 250, 252, 0.96) !important;
 }
 
-
-/* =========================================================
-   CIVIC GRADIENT
-========================================================= */
-
-.civic-gradient {
-  background:
-    linear-gradient(
-      120deg,
-      #ff9f43 0%,
-      #ffbf69 25%,
-      #ffffff 48%,
-      #ffffff 55%,
-      #bfe8c6 76%,
-      #83d394 100%
-    );
+.bg-slate-700 {
+  background-color: rgba(241, 245, 249, 0.96) !important;
 }
 
 
 /* =========================================================
-   SOFT CIVIC GRADIENT
+   DARK TEXT CLASSES
 ========================================================= */
 
-.civic-gradient-soft {
-  background:
-    linear-gradient(
-      120deg,
-      rgba(255, 159, 67, 0.28) 0%,
-      rgba(255, 191, 105, 0.12) 25%,
-      rgba(255, 255, 255, 0.04) 50%,
-      rgba(191, 232, 198, 0.12) 75%,
-      rgba(131, 211, 148, 0.28) 100%
-    );
+.text-white {
+  color: #0f172a;
+}
+
+.text-slate-900 {
+  color: #0f172a;
+}
+
+.text-slate-800 {
+  color: #1e293b;
+}
+
+.text-slate-700 {
+  color: #334155;
+}
+
+.text-slate-600 {
+  color: #475569;
 }
 
 
 /* =========================================================
-   GLASS CARD SUPPORT
+   DARK SLATE TEXT OVERRIDES
 ========================================================= */
 
-.civic-card {
-  background: rgba(255, 255, 255, 0.91);
-  border: 1px solid rgba(255, 255, 255, 0.85);
+.text-slate-400 {
+  color: #64748b;
+}
+
+.text-slate-500 {
+  color: #64748b;
+}
+
+
+/* =========================================================
+   BRAND ACCENTS
+========================================================= */
+
+.civic-orange {
+  color: #c2410c;
+}
+
+.civic-green {
+  color: #15803d;
+}
+
+.civic-blue {
+  color: #2563eb;
+}
+
+
+/* =========================================================
+   TRICOLOUR BUTTON
+========================================================= */
+
+.civic-button {
+  position: relative;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+
+  color: #ffffff;
+
+  background:
+    linear-gradient(
+      100deg,
+      #ea7c19 0%,
+      #f28b2d 32%,
+      #238b45 100%
+    );
+
+  border: none;
 
   box-shadow:
-    0 8px 30px rgba(15, 23, 42, 0.08);
+    0 6px 18px rgba(22, 101, 52, 0.18);
 
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.civic-button:hover {
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 9px 24px rgba(22, 101, 52, 0.22);
 }
 
 
 /* =========================================================
-   TRICOLOUR GLOW
+   TRICOLOUR TOP ACCENT
 ========================================================= */
 
-.civic-glow {
+.civic-top-accent {
   position: relative;
 }
 
-.civic-glow::before {
+.civic-top-accent::before {
   content: '';
 
   position: absolute;
-  inset: -40px;
 
-  z-index: -1;
+  top: 0;
+  left: 0;
+  right: 0;
 
-  background:
-    radial-gradient(
-      circle at 10% 30%,
-      rgba(255, 159, 67, 0.24),
-      transparent 35%
-    ),
-    radial-gradient(
-      circle at 90% 70%,
-      rgba(34, 197, 94, 0.20),
-      transparent 35%
-    );
-
-  pointer-events: none;
-}
-
-
-/* =========================================================
-   PAGE BACKGROUND HELPER
-========================================================= */
-
-.tricolour-page {
-  min-height: 100vh;
+  height: 4px;
 
   background:
     linear-gradient(
-      115deg,
-      #ffb347 0%,
-      #ffd08a 16%,
-      #fff5e6 30%,
-      #ffffff 47%,
-      #ffffff 57%,
-      #edf8ef 70%,
-      #c8edcf 84%,
-      #9fdfa9 100%
+      90deg,
+      #ff9933 0%,
+      #ff9933 33%,
+      #ffffff 33%,
+      #ffffff 66%,
+      #138808 66%,
+      #138808 100%
     );
-
-  background-attachment: fixed;
 }
 
 
 /* =========================================================
-   REMOVE DARK MODE VISUAL OVERRIDES
+   LIGHT INPUTS
 ========================================================= */
 
-.dark {
-  color-scheme: light;
+input,
+textarea,
+select {
+  color: #1e293b;
 }
 
-
-/*
-  Keep the interface visually light even if some
-  components still contain Tailwind dark-mode classes.
-*/
-
-.dark .text-white {
-  color: #0f172a !important;
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8;
 }
 
-.dark .text-slate-100 {
-  color: #1e293b !important;
-}
-
-.dark .text-slate-200 {
-  color: #334155 !important;
-}
-
-.dark .text-slate-300 {
-  color: #475569 !important;
-}
-
-.dark .text-slate-400 {
-  color: #64748b !important;
-}
-
-.dark .border-slate-700 {
-  border-color: rgba(226, 232, 240, 0.85) !important;
-}
-
-.dark .border-slate-800 {
-  border-color: rgba(226, 232, 240, 0.85) !important;
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
 }
 
 
 /* =========================================================
-   RESPONSIVE BACKGROUND
+   LIGHT TABLES
+========================================================= */
+
+table {
+  color: #334155;
+}
+
+thead {
+  background: rgba(248, 250, 252, 0.90);
+}
+
+tbody tr {
+  border-color: #e2e8f0;
+}
+
+tbody tr:hover {
+  background: rgba(248, 250, 252, 0.72);
+}
+
+
+/* =========================================================
+   LIGHT MODALS
+========================================================= */
+
+.modal-surface {
+  background: rgba(255, 255, 255, 0.98);
+
+  border:
+    1px solid
+    rgba(226, 232, 240, 0.95);
+
+  box-shadow:
+    0 24px 70px rgba(15, 23, 42, 0.18);
+}
+
+
+/* =========================================================
+   LIGHT NAVIGATION
+========================================================= */
+
+.nav-surface {
+  background: rgba(255, 255, 255, 0.94);
+
+  border-color: #e2e8f0;
+
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+
+/* =========================================================
+   RESPONSIVE
 ========================================================= */
 
 @media (max-width: 768px) {
@@ -440,184 +686,494 @@
     background:
       linear-gradient(
         145deg,
-        #ffb347 0%,
-        #ffe0ad 24%,
-        #ffffff 48%,
-        #eef9f0 72%,
-        #a8e1b1 100%
+        #ffe7cc 0%,
+        #fff8f0 32%,
+        #ffffff 52%,
+        #f3faf5 74%,
+        #d8efde 100%
       );
-
-    background-attachment: fixed;
   }
 
   #root {
     background:
       linear-gradient(
         145deg,
-        rgba(255, 179, 71, 0.35),
-        rgba(255, 255, 255, 0.04),
-        rgba(168, 225, 177, 0.35)
+        rgba(255, 231, 204, 0.50) 0%,
+        rgba(255, 255, 255, 0.35) 52%,
+        rgba(216, 239, 222, 0.50) 100%
       );
-
-    background-attachment: fixed;
   }
 }
 
 /* =========================================================
-   CIVICFIX — LIGHT SIDEBAR
-   Remove dark sidebar appearance
+   CIVICFIX — LIGHT UI OVERRIDE
+   Keeps the existing teal / orange / green theme
+   Removes dark navy surfaces across the application
 ========================================================= */
 
-/* Common sidebar dark backgrounds */
-aside,
-.sidebar,
-[class*="sidebar"] {
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.94) 0%,
-      rgba(255, 255, 255, 0.88) 45%,
-      rgba(239, 250, 241, 0.92) 100%
-    ) !important;
+:root {
+  --civic-bg: #f8fafc;
+  --civic-surface: #ffffff;
+  --civic-surface-soft: #f8fafc;
+  --civic-border: #e2e8f0;
+  --civic-text: #0f172a;
+  --civic-text-secondary: #64748b;
 
-  color: #0f172a !important;
+  --civic-teal: #0f9f95;
+  --civic-teal-light: #e6fffb;
 
-  border-color: rgba(226, 232, 240, 0.8) !important;
+  --civic-orange: #f97316;
+  --civic-orange-light: #fff4e8;
 
-  box-shadow:
-    4px 0 24px rgba(15, 23, 42, 0.06) !important;
+  --civic-green: #16a34a;
+  --civic-green-light: #ecfdf3;
+
+  --civic-blue: #2563eb;
+  --civic-blue-light: #eff6ff;
 }
 
 
-/* Kill Tailwind dark sidebar backgrounds */
-aside.dark\:bg-slate-950,
-aside.dark\:bg-slate-900,
-aside.bg-slate-950,
+/* =========================================================
+   GLOBAL PAGE BACKGROUND
+========================================================= */
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  background: var(--civic-bg);
+  color: var(--civic-text);
+}
+
+
+/* =========================================================
+   REMOVE DARK PAGE SURFACES
+========================================================= */
+
+.bg-slate-950,
+.bg-slate-900,
+.bg-slate-800 {
+  background-color: #ffffff !important;
+}
+
+.dark\:bg-slate-950,
+.dark\:bg-slate-900,
+.dark\:bg-slate-800 {
+  background-color: #ffffff !important;
+}
+
+
+/* =========================================================
+   DARK GRADIENTS → LIGHT PREMIUM GRADIENT
+========================================================= */
+
+.bg-gradient-to-br,
+.bg-gradient-to-b,
+.bg-gradient-to-r {
+  /* Don't globally destroy gradients.
+     Individual dark surfaces below are overridden. */
+}
+
+
+/* Common navy CivicFix hero/card backgrounds */
+.bg-\[\#07111f\],
+.bg-\[\#081426\],
+.bg-\[\#0b1628\],
+.bg-\[\#0f172a\],
+.bg-\[\#101827\],
+.bg-\[\#111827\],
+.bg-\[\#0c1729\],
+.bg-\[\#0d172a\],
+.bg-\[\#111c30\] {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+
+/* =========================================================
+   TEXT FIX
+========================================================= */
+
+.text-white {
+  /* Keep white text working on actual colored buttons */
+}
+
+.bg-white .text-white,
+.bg-slate-50 .text-white,
+.bg-slate-100 .text-white {
+  color: #0f172a !important;
+}
+
+.text-slate-100 {
+  color: #1e293b !important;
+}
+
+.text-slate-200 {
+  color: #334155 !important;
+}
+
+.text-slate-300 {
+  color: #475569 !important;
+}
+
+.text-slate-400 {
+  color: #64748b !important;
+}
+
+.text-slate-500 {
+  color: #64748b !important;
+}
+
+
+/* =========================================================
+   DARK BORDERS
+========================================================= */
+
+.border-slate-800,
+.border-slate-700 {
+  border-color: #e2e8f0 !important;
+}
+
+.dark\:border-slate-800,
+.dark\:border-slate-700 {
+  border-color: #e2e8f0 !important;
+}
+
+
+/* =========================================================
+   HERO CARDS
+========================================================= */
+
+.civic-hero,
+.hero-card,
+.command-hero,
+.transformation-hero,
+.scanner-hero {
+  background:
+    radial-gradient(
+      circle at 12% 20%,
+      rgba(249, 115, 22, 0.08),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 88% 30%,
+      rgba(20, 184, 166, 0.10),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(34, 197, 94, 0.07),
+      transparent 35%
+    ),
+    #ffffff !important;
+
+  color: #0f172a !important;
+  border: 1px solid #dbe4ec;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+}
+
+
+/* =========================================================
+   QR SCANNER
+========================================================= */
+
+.qr-scanner-card,
+.scanner-card {
+  background:
+    radial-gradient(
+      circle at 15% 20%,
+      rgba(249, 115, 22, 0.09),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 85% 25%,
+      rgba(20, 184, 166, 0.10),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(34, 197, 94, 0.08),
+      transparent 35%
+    ),
+    #ffffff !important;
+
+  border: 1px solid #dce5ec !important;
+  color: #0f172a !important;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+}
+
+
+/* QR scanning frame */
+
+.qr-frame {
+  background: #f8fafc !important;
+  border: 2px solid #0f9f95 !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(20, 184, 166, 0.15),
+    0 12px 30px rgba(20, 184, 166, 0.08);
+}
+
+
+/* =========================================================
+   INPUTS
+========================================================= */
+
+input,
+textarea,
+select {
+  background-color: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #14b8a6;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+}
+
+
+/* =========================================================
+   BUTTONS
+========================================================= */
+
+/* Keep primary teal buttons */
+.bg-teal-600 {
+  background-color: #0f9f95 !important;
+}
+
+.bg-teal-500 {
+  background-color: #14b8a6 !important;
+}
+
+
+/* Blue action */
+.bg-blue-600 {
+  background-color: #2563eb !important;
+}
+
+
+/* Orange action */
+.bg-orange-500 {
+  background-color: #f97316 !important;
+}
+
+
+/* Green action */
+.bg-green-600 {
+  background-color: #16a34a !important;
+}
+
+
+/* =========================================================
+   SOFT TRI-COLOR SECTIONS
+========================================================= */
+
+.civic-tricolor {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(249, 115, 22, 0.08) 0%,
+      rgba(249, 115, 22, 0.03) 32%,
+      rgba(20, 184, 166, 0.07) 50%,
+      rgba(34, 197, 94, 0.08) 100%
+    ) !important;
+}
+
+
+/* =========================================================
+   CARDS
+========================================================= */
+
+.card,
+.dashboard-card,
+.stat-card,
+.metric-card,
+.project-card,
+.issue-card,
+.infrastructure-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.045);
+}
+
+
+/* =========================================================
+   TRANSFORMATION PAGE
+========================================================= */
+
+.transformation-page {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+.transformation-page h1,
+.transformation-page h2,
+.transformation-page h3 {
+  color: #0f172a !important;
+}
+
+.transformation-page p {
+  color: #64748b !important;
+}
+
+
+/* Before section */
+
+.before-card {
+  background: #fff7f7 !important;
+  border-color: #fecaca !important;
+}
+
+
+/* After section */
+
+.after-card {
+  background: #f0fdf4 !important;
+  border-color: #86efac !important;
+}
+
+
+/* =========================================================
+   TABS
+========================================================= */
+
+.tab,
+.tabs button {
+  background: #ffffff;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+
+.tab.active,
+.tabs button.active {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #99f6e4;
+}
+
+
+/* =========================================================
+   MODALS
+========================================================= */
+
+.modal,
+.modal-content,
+[role="dialog"] {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+
+/* =========================================================
+   TABLES
+========================================================= */
+
+table {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+thead {
+  background: #f8fafc;
+}
+
+th {
+  color: #475569;
+}
+
+td {
+  border-color: #e2e8f0;
+}
+
+
+/* =========================================================
+   SCROLLBAR
+========================================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+
+/* =========================================================
+   DARK MODE UTILITY CLASSES
+   Prevent dark cards from appearing while keeping
+   sidebar structure untouched.
+========================================================= */
+
+.dark\:text-white {
+  color: #0f172a !important;
+}
+
+.dark\:text-slate-100 {
+  color: #1e293b !important;
+}
+
+.dark\:text-slate-200 {
+  color: #334155 !important;
+}
+
+.dark\:text-slate-300 {
+  color: #475569 !important;
+}
+
+.dark\:text-slate-400 {
+  color: #64748b !important;
+}
+
+.dark\:bg-slate-50 {
+  background-color: #f8fafc !important;
+}
+
+.dark\:bg-slate-100 {
+  background-color: #f1f5f9 !important;
+}
+
+
+/* =========================================================
+   IMPORTANT:
+   Don't affect sidebar's intended dark admin theme.
+========================================================= */
+
 aside.bg-slate-900 {
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.96),
-      rgba(255, 255, 255, 0.91) 55%,
-      rgba(232, 248, 235, 0.94)
-    ) !important;
+  background-color: #0f172a !important;
 }
 
-
-/* Sidebar text */
-aside .text-white,
-aside .text-slate-100,
-aside .text-slate-200,
-aside .text-slate-300 {
-  color: #334155 !important;
+aside.bg-slate-900 .text-white {
+  color: #ffffff !important;
 }
 
-
-/* Sidebar muted text */
-aside .text-slate-400,
-aside .text-slate-500 {
-  color: #64748b !important;
+aside.bg-slate-900 .text-slate-400 {
+  color: #94a3b8 !important;
 }
 
-
-/* Sidebar borders */
-aside .border-slate-700,
-aside .border-slate-800 {
-  border-color: rgba(226, 232, 240, 0.85) !important;
-}
-
-
-/* =========================================================
-   SIDEBAR ACTIVE ITEM
-========================================================= */
-
-aside .bg-blue-600,
-aside .bg-blue-500 {
-  background:
-    linear-gradient(
-      135deg,
-      #dff7e5,
-      #ecfdf5
-    ) !important;
-
-  color: #15803d !important;
-
-  box-shadow:
-    0 3px 12px rgba(34, 197, 94, 0.12) !important;
-}
-
-
-/* Active item text/icon */
-aside .bg-blue-600 *,
-aside .bg-blue-500 * {
-  color: #15803d !important;
-}
-
-
-/* =========================================================
-   SIDEBAR HOVER
-========================================================= */
-
-aside a:hover,
-aside button:hover {
-  background-color: rgba(255, 237, 213, 0.55) !important;
-  color: #166534 !important;
-}
-
-
-/* =========================================================
-   REMOVE DARK MODE COLORS INSIDE SIDEBAR
-========================================================= */
-
-.dark aside {
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.96) 0%,
-      rgba(255, 255, 255, 0.92) 50%,
-      rgba(232, 248, 235, 0.94) 100%
-    ) !important;
-
-  color: #0f172a !important;
-}
-
-.dark aside .text-white,
-.dark aside .text-slate-100,
-.dark aside .text-slate-200,
-.dark aside .text-slate-300 {
-  color: #334155 !important;
-}
-
-.dark aside .text-slate-400,
-.dark aside .text-slate-500 {
-  color: #64748b !important;
-}
-
-
-/* =========================================================
-   TOP HEADER — KEEP LIGHT
-========================================================= */
-
-header {
-  background: rgba(255, 255, 255, 0.92) !important;
-
-  color: #0f172a !important;
-
-  border-color: rgba(226, 232, 240, 0.8) !important;
-
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-
-/* =========================================================
-   DARK MODE TOGGLE — HIDE
-========================================================= */
-
-/* Moon / theme toggle buttons */
-button[aria-label*="dark" i],
-button[aria-label*="theme" i],
-button[title*="dark" i],
-button[title*="theme" i] {
-  display: none !important;
+aside.bg-slate-900 .bg-blue-600 {
+  background-color: #2563eb !important;
 }

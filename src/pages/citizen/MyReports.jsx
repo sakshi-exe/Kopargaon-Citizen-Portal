@@ -83,23 +83,16 @@ const normalizeStatus = (status) => {
 // ==================================================
 
 function StatusTimeline({ currentStatus }) {
+  const status = normalizeStatus(currentStatus);
 
-  const status =
-    normalizeStatus(currentStatus);
-
-  const currentIdx =
-    STEP_ORDER.indexOf(status);
+  const currentIdx = STEP_ORDER.indexOf(status);
 
   return (
     <div className="flex items-center gap-1 mt-2 flex-wrap">
 
       {STEP_ORDER.map((s, i) => {
-
-        const done =
-          currentIdx >= i;
-
-        const current =
-          status === s;
+        const done = currentIdx >= i;
+        const current = status === s;
 
         return (
           <React.Fragment key={s}>
@@ -112,7 +105,7 @@ function StatusTimeline({ currentStatus }) {
                     ? 'bg-blue-600 border-blue-600 text-white'
                     : done
                     ? 'bg-green-500 border-green-500 text-white'
-                    : 'bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-400'
+                    : 'bg-slate-100 border-slate-300 text-slate-400'
                 }`}
               >
                 {done && !current
@@ -123,7 +116,7 @@ function StatusTimeline({ currentStatus }) {
               <span
                 className={`text-[9px] mt-0.5 whitespace-nowrap ${
                   done
-                    ? 'text-slate-700 dark:text-slate-300'
+                    ? 'text-slate-700'
                     : 'text-slate-400'
                 }`}
               >
@@ -134,13 +127,12 @@ function StatusTimeline({ currentStatus }) {
 
             </div>
 
-            {i <
-              STEP_ORDER.length - 1 && (
+            {i < STEP_ORDER.length - 1 && (
               <div
                 className={`flex-1 h-0.5 min-w-[8px] mb-3 ${
                   currentIdx > i
                     ? 'bg-green-500'
-                    : 'bg-slate-200 dark:bg-slate-700'
+                    : 'bg-slate-200'
                 }`}
               />
             )}
@@ -160,14 +152,9 @@ function StatusTimeline({ currentStatus }) {
 
 export default function MyReports() {
 
-  const [issues, setIssues] =
-    useState([]);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState(null);
+  const [issues, setIssues] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
 
   // ==================================================
@@ -181,25 +168,18 @@ export default function MyReports() {
       setError(null);
 
       const {
-        data: {
-          user,
-        },
+        data: { user },
         error: userError,
       } = await supabase.auth.getUser();
-
 
       if (userError) {
         throw userError;
       }
 
-
       if (!user) {
-
         setIssues([]);
-
         return;
       }
-
 
       const {
         data,
@@ -212,7 +192,6 @@ export default function MyReports() {
           ascending: false,
         });
 
-
       if (supabaseError) {
 
         console.error(
@@ -222,7 +201,6 @@ export default function MyReports() {
 
         throw supabaseError;
       }
-
 
       setIssues(data || []);
 
@@ -235,7 +213,7 @@ export default function MyReports() {
 
       setError(
         err?.message ||
-          'Unable to load your reports.'
+        'Unable to load your reports.'
       );
 
     } finally {
@@ -255,24 +233,16 @@ export default function MyReports() {
 
     const setupRealtime = async () => {
 
-      // Initial fetch
       await fetchIssues();
 
-
-      // Get current user
       const {
-        data: {
-          user,
-        },
+        data: { user },
       } = await supabase.auth.getUser();
-
 
       if (!user) {
         return;
       }
 
-
-      // Listen for INSERT / UPDATE / DELETE
       channel = supabase
         .channel(
           `citizen-my-reports-${user.id}`
@@ -292,9 +262,6 @@ export default function MyReports() {
               payload
             );
 
-            // Re-fetch from DB.
-            // This keeps the exact same UI
-            // while updating the actual DB data.
             fetchIssues();
           }
         )
@@ -309,18 +276,12 @@ export default function MyReports() {
 
     };
 
-
     setupRealtime();
-
 
     return () => {
 
       if (channel) {
-
-        supabase.removeChannel(
-          channel
-        );
-
+        supabase.removeChannel(channel);
       }
 
     };
@@ -335,7 +296,7 @@ export default function MyReports() {
   if (loading) {
 
     return (
-      <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex flex-col h-full overflow-hidden bg-white">
 
         <Header
           title="My Reports"
@@ -351,7 +312,7 @@ export default function MyReports() {
               className="text-teal-600 animate-spin mb-3"
             />
 
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-slate-500">
               Loading your reports...
             </p>
 
@@ -371,7 +332,7 @@ export default function MyReports() {
   if (error) {
 
     return (
-      <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex flex-col h-full overflow-hidden bg-white">
 
         <Header
           title="My Reports"
@@ -393,7 +354,17 @@ export default function MyReports() {
 
             <button
               onClick={fetchIssues}
-              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium"
+              className="
+                px-4
+                py-2
+                bg-teal-600
+                hover:bg-teal-700
+                text-white
+                rounded-lg
+                text-sm
+                font-medium
+                transition-colors
+              "
             >
               Try Again
             </button>
@@ -412,7 +383,7 @@ export default function MyReports() {
   // ==================================================
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden bg-white">
 
       <Header
         title="My Reports"
@@ -430,18 +401,27 @@ export default function MyReports() {
 
           <div className="flex flex-col items-center justify-center h-64 text-center">
 
-            <AlertCircle
-              size={40}
-              className="text-slate-300 dark:text-slate-600 mb-3"
-            />
+            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
+              <AlertCircle
+                size={30}
+                className="text-slate-400"
+              />
+            </div>
 
-            <p className="text-slate-500 dark:text-slate-400">
+            <p className="text-slate-500">
               No reports yet.
             </p>
 
             <a
               href="/citizen/report"
-              className="mt-3 text-sm text-teal-600 dark:text-teal-400 hover:underline"
+              className="
+                mt-3
+                text-sm
+                text-teal-600
+                hover:text-teal-700
+                hover:underline
+                font-medium
+              "
             >
               Report your first issue →
             </a>
@@ -461,68 +441,66 @@ export default function MyReports() {
             {issues.map((issue) => {
 
               const displayStatus =
-                normalizeStatus(
-                  issue.status
-                );
-
+                normalizeStatus(issue.status);
 
               const submittedDate =
                 issue.created_at
-                  ? new Date(
-                      issue.created_at
-                    )
+                  ? new Date(issue.created_at)
                   : null;
-
 
               return (
 
                 <div
                   key={issue.id}
-                  className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5"
+                  className="
+                    bg-white
+                    rounded-2xl
+                    border border-slate-200
+                    p-5
+                    shadow-sm
+                    hover:shadow-md
+                    transition-shadow
+                  "
                 >
 
                   {/* HEADER */}
 
                   <div className="flex items-start justify-between gap-3 mb-2">
 
-                    <div>
+                    <div className="min-w-0">
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
 
                         <span className="text-xs font-mono text-slate-400">
                           {issue.id}
                         </span>
 
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-slate-300">
                           ·
                         </span>
 
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-slate-500 font-medium">
                           {issue.category}
                         </span>
 
                       </div>
 
-
-                      <h3 className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
-
+                      <h3 className="
+                        mt-1
+                        text-sm
+                        font-semibold
+                        text-slate-800
+                      ">
                         {issue.description &&
                         issue.description.length > 80
-                          ? `${issue.description.slice(
-                              0,
-                              80
-                            )}…`
+                          ? `${issue.description.slice(0, 80)}…`
                           : issue.description}
-
                       </h3>
 
                     </div>
 
-
                     <StatusBadge
-                      status={
-                        displayStatus
-                      }
+                      status={displayStatus}
                     />
 
                   </div>
@@ -530,7 +508,15 @@ export default function MyReports() {
 
                   {/* META */}
 
-                  <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 mb-3 flex-wrap">
+                  <div className="
+                    flex
+                    items-center
+                    gap-4
+                    text-xs
+                    text-slate-500
+                    mb-3
+                    flex-wrap
+                  ">
 
                     <span className="flex items-center gap-1">
 
@@ -540,7 +526,6 @@ export default function MyReports() {
                         'Location selected'}
 
                     </span>
-
 
                     {submittedDate && (
 
@@ -556,17 +541,13 @@ export default function MyReports() {
 
                     )}
 
-
                     {submittedDate && (
 
                       <span>
-
                         Submitted:{' '}
-
                         {formatDate(
                           submittedDate
                         )}
-
                       </span>
 
                     )}
@@ -579,7 +560,18 @@ export default function MyReports() {
                   {issue.latitude != null &&
                     issue.longitude != null && (
 
-                    <div className="text-[11px] text-slate-400 mb-3">
+                    <div className="
+                      inline-flex
+                      items-center
+                      text-[11px]
+                      text-slate-400
+                      bg-slate-50
+                      border border-slate-100
+                      rounded-lg
+                      px-2
+                      py-1
+                      mb-3
+                    ">
 
                       📍{' '}
 
@@ -601,9 +593,7 @@ export default function MyReports() {
                   {/* STATUS TIMELINE */}
 
                   <StatusTimeline
-                    currentStatus={
-                      displayStatus
-                    }
+                    currentStatus={displayStatus}
                   />
 
                 </div>

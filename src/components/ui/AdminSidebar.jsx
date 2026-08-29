@@ -90,31 +90,28 @@ export default function AdminSidebar({ collapsed = false }) {
     <aside
       className={`
         flex flex-col h-full
-        bg-slate-900
-        border-r border-slate-800
+        bg-white
+        border-r border-slate-200
         transition-all duration-200
         flex-shrink-0
-        ${collapsed ? 'w-16' : 'w-72'}
+        ${collapsed ? 'w-16' : 'w-80'}
       `}
     >
-
-      {/* =====================================================
-          LOGO
-      ===================================================== */}
-
+      {/* ==================== LOGO ==================== */}
       <div
         className="
-          flex items-center gap-4
+          flex items-center gap-3
           px-5 py-5
-          border-b border-slate-800
+          border-b border-slate-200
           flex-shrink-0
+          bg-white
         "
       >
-
+        {/* Logo */}
         <div
           className="
-            w-11 h-11
-            bg-blue-600
+            w-10 h-10
+            bg-teal-500
             rounded-xl
             flex items-center justify-center
             flex-shrink-0
@@ -122,19 +119,19 @@ export default function AdminSidebar({ collapsed = false }) {
           "
         >
           <Building2
-            size={23}
+            size={21}
+            strokeWidth={2}
             className="text-white"
           />
         </div>
 
         {!collapsed && (
           <div className="min-w-0">
-
             <div
               className="
                 text-lg
-                font-bold
-                text-white
+                font-extrabold
+                text-slate-900
                 leading-tight
               "
             >
@@ -144,115 +141,111 @@ export default function AdminSidebar({ collapsed = false }) {
             <div
               className="
                 text-xs
-                text-blue-400
-                font-medium
+                text-teal-600
+                font-semibold
                 mt-0.5
               "
             >
               Kopargaon Admin Center
             </div>
-
           </div>
         )}
-
       </div>
 
-
-      {/* =====================================================
-          NAVIGATION
-      ===================================================== */}
-
+      {/* ==================== NAVIGATION ==================== */}
       <nav
         className="
           flex-1
           overflow-y-auto
           py-5
           px-3
+          bg-white
         "
       >
-
-        <div className="space-y-2">
-
+        <div className="space-y-1.5">
           {NAV_ITEMS.map((item) => (
-
             <NavLink
               key={item.to}
               to={item.to}
               end={!!item.end}
               className={({ isActive }) =>
                 `
+                  group
                   flex items-center
                   gap-4
-                  px-4 py-3.5
+                  px-4 py-3
                   rounded-xl
-                  text-base
-                  font-medium
-                  transition-all duration-150
-
+                  text-sm
+                  transition-all
+                  duration-150
+                  border
                   ${
                     isActive
                       ? `
-                        bg-blue-600
-                        text-white
-                        font-semibold
-                        shadow-sm
+                        bg-teal-50
+                        border-teal-100
+                        text-teal-700
+                        font-bold
                       `
                       : `
-                        text-slate-400
-                        hover:bg-slate-800
-                        hover:text-white
+                        bg-transparent
+                        border-transparent
+                        text-slate-600
+                        font-semibold
+                        hover:bg-slate-50
+                        hover:border-slate-100
+                        hover:text-slate-900
                       `
                   }
-
-                  ${collapsed ? 'justify-center' : ''}
                 `
               }
             >
+              {({ isActive }) => (
+                <>
+                  <item.icon
+                    size={20}
+                    strokeWidth={isActive ? 2.3 : 2}
+                    className={`
+                      flex-shrink-0
+                      transition-colors
+                      ${
+                        isActive
+                          ? 'text-teal-600'
+                          : 'text-slate-500 group-hover:text-slate-700'
+                      }
+                    `}
+                  />
 
-              <item.icon
-                size={21}
-                strokeWidth={2}
-                className="flex-shrink-0"
-              />
-
-              {!collapsed && (
-                <span className="truncate">
-                  {item.label}
-                </span>
+                  {!collapsed && (
+                    <span className="truncate">
+                      {item.label}
+                    </span>
+                  )}
+                </>
               )}
-
             </NavLink>
-
           ))}
-
         </div>
-
       </nav>
 
-
-      {/* =====================================================
-          SWITCH TO CITIZEN
-      ===================================================== */}
-
+      {/* ==================== SWITCH TO CITIZEN ==================== */}
       <div
         className="
           px-3
           py-4
-          border-t border-slate-800
+          border-t border-slate-200
           flex-shrink-0
+          bg-white
         "
       >
-
         <button
           onClick={() => {
-
             dispatch({
               type: 'SET_ROLE',
               payload: 'citizen',
             });
 
             navigate('/citizen');
-
           }}
           className="
             w-full
@@ -260,34 +253,35 @@ export default function AdminSidebar({ collapsed = false }) {
             gap-3
             px-4 py-3
             rounded-xl
+            border border-teal-100
+            bg-white
             text-sm
-            font-medium
-            text-slate-400
-            hover:bg-slate-800
-            hover:text-slate-200
-            transition-colors
+            font-semibold
+            text-slate-600
+            hover:bg-teal-50
+            hover:text-teal-700
+            hover:border-teal-200
+            transition-all
+            duration-150
           "
         >
-
           <ChevronLeft
             size={17}
-            className="flex-shrink-0"
+            className="text-teal-600 flex-shrink-0"
           />
 
           {!collapsed && (
-            <span>
+            <span className="truncate">
               Switch to Citizen View
             </span>
           )}
-
         </button>
-
 
         {!collapsed && (
           <p
             className="
               text-[11px]
-              text-slate-500
+              text-slate-400
               px-4
               mt-2
             "
@@ -295,9 +289,7 @@ export default function AdminSidebar({ collapsed = false }) {
             Kopargaon Citizen Portal
           </p>
         )}
-
       </div>
-
     </aside>
   );
 }
