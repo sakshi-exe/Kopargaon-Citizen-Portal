@@ -6,6 +6,7 @@ import { CompactVideoEvidenceCard } from '../../components/ui/VideoEvidencePlaye
 import { formatDate } from '../../utils/formatters.js';
 import { getWardName } from '../../data/wards.js';
 import { getConditionColor } from '../../data/infrastructure.js';
+import { supabase } from '../../lib/supabase.js';
 import {
   Wrench,
   Camera,
@@ -31,7 +32,8 @@ export default function FieldInspection() {
   const [conditionScore, setConditionScore] =
     useState(4);
 
-  const [remarks, setRemarks] = useState('');
+  const [remarks, setRemarks] =
+    useState('');
 
   const [photoPreview, setPhotoPreview] =
     useState(null);
@@ -39,27 +41,26 @@ export default function FieldInspection() {
   const [photoFile, setPhotoFile] =
     useState(null);
 
-  const [successBanner, setSuccessBanner] =
+  const [submitting, setSubmitting] =
     useState(false);
 
-  const [submitting, setSubmitting] =
+  const [successBanner, setSuccessBanner] =
     useState(false);
 
   const selectedAsset =
     state.infrastructure.find(
-      (item) => item.id === selectedAssetId
+      (asset) => asset.id === selectedAssetId
     ) || state.infrastructure[0];
 
-  // ─────────────────────────────────────────────
-  // PHOTO UPLOAD
-  // ─────────────────────────────────────────────
+  // ─────────────────────────────────────
+  // PHOTO SELECTION
+  // ─────────────────────────────────────
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files?.[0];
 
     if (!file) return;
 
-    // 10 MB validation
     if (file.size > 10 * 1024 * 1024) {
       alert('Photo must be smaller than 10MB.');
       return;
@@ -76,9 +77,46 @@ export default function FieldInspection() {
     reader.readAsDataURL(file);
   };
 
-  // ─────────────────────────────────────────────
+  // ─────────────────────────────────────
+  // SUPABASE PHOTO UPLOAD
+  // ─────────────────────────────────────
+
+  const uploadEvidencePhoto = async () => {
+    if (!photoFile) {
+      return null;
+    }
+
+    const safeName = photoFile.name
+      .replace(/[^a-zA-Z0-9._-]/g, '-')
+      .toLowerCase();
+
+    const filePath =
+      `${selectedAsset.id}/${Date.now()}-${safeName}`;
+
+    const { error: uploadError } =
+      await supabase.storage
+        .from('inspection-evidence')
+        .upload(filePath, photoFile, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: photoFile.type,
+        });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { data } =
+      supabase.storage
+        .from('inspection-evidence')
+        .getPublicUrl(filePath);
+
+    return data?.publicUrl || null;
+  };
+
+  // ─────────────────────────────────────
   // SUBMIT INSPECTION
-  // ─────────────────────────────────────────────
+  // ─────────────────────────────────────
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -102,41 +140,69 @@ export default function FieldInspection() {
     setSuccessBanner(false);
 
     try {
+      // 1. Upload evidence photo
+      const photoUrl =
+        await uploadEvidencePhoto();
+
+      // 2. Save inspection to Supabase
+      const { data: inspectionData, error } =
+        await supabase
+          .from('inspections')
+          .insert([
+            {
+              asset_id: selectedAsset.id,
+              inspector_name: inspectorName.trim(),
+              condition_level: conditionLevel,
+              condition_score: conditionScore,
+              remarks: remarks.trim() || null,
+              evidence_photo_url: photoUrl,
+              status: 'Verified',
+            },
+          ])
+          .select()
+          .single();
+
+      if (error) {
+        console.error(
+          'SUPABASE INSPECTION ERROR:',
+          error
+        );
+
+        alert(
+          `Failed to save inspection:\n\n${error.message}`
+        );
+
+        return;
+      }
+
+      console.log(
+        'Inspection saved to Supabase:',
+        inspectionData
+      );
+
+      // 3. Keep existing local app workflow
       dispatch({
         type: 'SUBMIT_INSPECTION',
         payload: {
           assetId: selectedAsset.id,
-
-          inspectorName:
-            inspectorName.trim(),
-
-          condition:
-            conditionLevel,
-
-          conditionLabel:
-            conditionLevel,
-
-          conditionScore:
-            conditionScore,
-
-          remarks:
-            remarks.trim(),
-
-          evidencePhoto:
-            photoPreview || null,
-
+          inspectorName: inspectorName.trim(),
+          condition: conditionLevel,
+          conditionLabel: conditionLevel,
+          conditionScore,
+          remarks: remarks.trim(),
+          evidencePhoto: photoUrl,
           status: 'Verified',
         },
       });
 
+      // 4. Show success
       setSuccessBanner(true);
 
-      // Reset inspection-specific fields
+      // 5. Clear form evidence
       setRemarks('');
       setPhotoPreview(null);
       setPhotoFile(null);
 
-      // Scroll to top so success banner is visible
       window.scrollTo({
         top: 0,
         behavior: 'smooth',
@@ -144,21 +210,17 @@ export default function FieldInspection() {
 
     } catch (error) {
       console.error(
-        'Inspection submission error:',
+        'FIELD INSPECTION ERROR:',
         error
       );
 
       alert(
-        'Failed to submit field inspection.'
+        `Something went wrong:\n\n${error.message || error}`
       );
     } finally {
       setSubmitting(false);
     }
   };
-
-  // ─────────────────────────────────────────────
-  // CONDITION OPTIONS
-  // ─────────────────────────────────────────────
 
   const conditionOptions = [
     {
@@ -187,10 +249,6 @@ export default function FieldInspection() {
     },
   ];
 
-  // ─────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
 
@@ -201,7 +259,7 @@ export default function FieldInspection() {
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
-        {/* SUCCESS BANNER */}
+        {/* SUCCESS */}
 
         {successBanner && (
           <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 flex items-center justify-between shadow-sm">
@@ -214,15 +272,13 @@ export default function FieldInspection() {
               />
 
               <div>
-
                 <strong className="block text-sm font-bold">
                   Field Inspection Certified & Recorded!
                 </strong>
 
                 <span className="text-xs">
-                  Asset {selectedAssetId} condition updated in GIS Command Center and public transparency record.
+                  Inspection saved to the municipal verification database.
                 </span>
-
               </div>
 
             </div>
@@ -242,13 +298,11 @@ export default function FieldInspection() {
           </div>
         )}
 
-        {/* MAIN GRID */}
-
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-          {/* LEFT — FORM */}
+          {/* LEFT */}
 
-          <div className="lg:col-span-7 space-y-6">
+          <div className="lg:col-span-7">
 
             <form
               onSubmit={handleSubmit}
@@ -285,7 +339,7 @@ export default function FieldInspection() {
 
               </div>
 
-              {/* STEP 1 */}
+              {/* ASSET */}
 
               <div>
 
@@ -297,25 +351,19 @@ export default function FieldInspection() {
                 <select
                   value={selectedAssetId}
                   onChange={(e) =>
-                    setSelectedAssetId(
-                      e.target.value
-                    )
+                    setSelectedAssetId(e.target.value)
                   }
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
 
                   {state.infrastructure.map(
-                    (item) => (
+                    (asset) => (
                       <option
-                        key={item.id}
-                        value={item.id}
+                        key={asset.id}
+                        value={asset.id}
                       >
-                        {item.id} — {item.name}{' '}
-                        (
-                        {getWardName(
-                          item.wardId
-                        )}
-                        )
+                        {asset.id} — {asset.name} (
+                        {getWardName(asset.wardId)})
                       </option>
                     )
                   )}
@@ -324,7 +372,7 @@ export default function FieldInspection() {
 
               </div>
 
-              {/* STEP 2 */}
+              {/* INSPECTOR */}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
@@ -338,9 +386,7 @@ export default function FieldInspection() {
                     type="text"
                     value={inspectorName}
                     onChange={(e) =>
-                      setInspectorName(
-                        e.target.value
-                      )
+                      setInspectorName(e.target.value)
                     }
                     className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Inspector name..."
@@ -356,9 +402,7 @@ export default function FieldInspection() {
 
                   <div className="px-3.5 py-2 bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-600 dark:text-slate-400 font-medium">
                     {selectedAsset
-                      ? getWardName(
-                          selectedAsset.wardId
-                        )
+                      ? getWardName(selectedAsset.wardId)
                       : '—'}
                   </div>
 
@@ -366,7 +410,7 @@ export default function FieldInspection() {
 
               </div>
 
-              {/* STEP 3 */}
+              {/* CONDITION */}
 
               <div>
 
@@ -376,45 +420,39 @@ export default function FieldInspection() {
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
 
-                  {conditionOptions.map(
-                    (condition) => (
-                      <button
-                        type="button"
-                        key={condition.label}
-                        onClick={() => {
-                          setConditionLevel(
-                            condition.label
-                          );
+                  {conditionOptions.map((condition) => (
 
-                          setConditionScore(
-                            condition.score
-                          );
-                        }}
-                        className={`p-3 rounded-xl border-2 text-center transition-all ${
-                          conditionLevel ===
-                          condition.label
-                            ? `${condition.color} font-bold shadow-sm`
-                            : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-300'
-                        }`}
-                      >
+                    <button
+                      type="button"
+                      key={condition.label}
+                      onClick={() => {
+                        setConditionLevel(condition.label);
+                        setConditionScore(condition.score);
+                      }}
+                      className={`p-3 rounded-xl border-2 text-center transition-all ${
+                        conditionLevel === condition.label
+                          ? `${condition.color} font-bold shadow-sm`
+                          : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                      }`}
+                    >
 
-                        <div className="text-sm">
-                          {condition.label}
-                        </div>
+                      <div className="text-sm">
+                        {condition.label}
+                      </div>
 
-                        <div className="text-[10px] opacity-75 mt-0.5">
-                          {condition.score} / 10
-                        </div>
+                      <div className="text-[10px] opacity-75 mt-0.5">
+                        {condition.score} / 10
+                      </div>
 
-                      </button>
-                    )
-                  )}
+                    </button>
+
+                  ))}
 
                 </div>
 
               </div>
 
-              {/* STEP 4 */}
+              {/* PHOTO */}
 
               <div>
 
@@ -428,7 +466,7 @@ export default function FieldInspection() {
 
                     <img
                       src={photoPreview}
-                      alt="Field evidence"
+                      alt="Evidence"
                       className="w-full h-full object-cover"
                     />
 
@@ -465,10 +503,8 @@ export default function FieldInspection() {
 
                     <input
                       type="file"
-                      accept="image/jpeg,image/png,image/heic,image/heif"
-                      onChange={
-                        handlePhotoUpload
-                      }
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
                       className="sr-only"
                     />
 
@@ -478,7 +514,7 @@ export default function FieldInspection() {
 
               </div>
 
-              {/* STEP 5 */}
+              {/* REMARKS */}
 
               <div>
 
@@ -490,9 +526,7 @@ export default function FieldInspection() {
                   rows={3}
                   value={remarks}
                   onChange={(e) =>
-                    setRemarks(
-                      e.target.value
-                    )
+                    setRemarks(e.target.value)
                   }
                   placeholder="Record observed structural damage, wear and tear, maintenance requirements..."
                   className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
@@ -516,13 +550,11 @@ export default function FieldInspection() {
                         size={18}
                         className="animate-spin"
                       />
-                      Recording Inspection...
+                      Saving Inspection...
                     </>
                   ) : (
                     <>
-                      <ShieldCheck
-                        size={18}
-                      />
+                      <ShieldCheck size={18} />
                       Certify & Submit Field Inspection
                     </>
                   )}
@@ -542,6 +574,7 @@ export default function FieldInspection() {
             {/* ASSET CARD */}
 
             {selectedAsset && (
+
               <div className="p-5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md">
 
                 <div className="flex items-start justify-between gap-3 mb-3">
@@ -558,14 +591,12 @@ export default function FieldInspection() {
 
                     <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {selectedAsset.type} ·{' '}
-                      {getWardName(
-                        selectedAsset.wardId
-                      )}
+                      {getWardName(selectedAsset.wardId)}
                     </div>
 
                   </div>
 
-                  <div className="p-1 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex-shrink-0">
+                  <div className="p-1 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
 
                     <QRCodeSVG
                       value={`https://civicfix.kopargaon.gov.in/asset/${selectedAsset.id}`}
@@ -631,8 +662,7 @@ export default function FieldInspection() {
                     </span>
 
                     <span className="font-semibold text-slate-700 dark:text-slate-300">
-                      {selectedAsset.contractor ||
-                        'KMC PWD'}
+                      {selectedAsset.contractor || 'KMC PWD'}
                     </span>
 
                   </div>
@@ -644,9 +674,7 @@ export default function FieldInspection() {
                     </span>
 
                     <span className="font-semibold text-slate-700 dark:text-slate-300">
-                      {selectedAsset.citizenReports ||
-                        0}{' '}
-                      tickets
+                      {selectedAsset.citizenReports || 0} tickets
                     </span>
 
                   </div>
@@ -657,8 +685,7 @@ export default function FieldInspection() {
                   onClick={() =>
                     dispatch({
                       type: 'OPEN_ASSET_MODAL',
-                      payload:
-                        selectedAsset,
+                      payload: selectedAsset,
                     })
                   }
                   className="w-full mt-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-center gap-1.5"
@@ -668,21 +695,22 @@ export default function FieldInspection() {
                 </button>
 
               </div>
+
             )}
 
             {/* VIDEO */}
 
             {selectedAsset && (
+
               <CompactVideoEvidenceCard
                 title={`${selectedAsset.name} — Progress Verification`}
-                projectName={
-                  selectedAsset.name
-                }
+                projectName={selectedAsset.name}
                 date="August 2026"
               />
+
             )}
 
-            {/* INSPECTION LOGS */}
+            {/* LOGS */}
 
             <div className="p-5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md">
 
@@ -693,73 +721,58 @@ export default function FieldInspection() {
 
               <div className="space-y-3">
 
-                {state.inspections.map(
-                  (inspection) => (
+                {state.inspections.map((insp) => (
 
-                    <div
-                      key={inspection.id}
-                      className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs space-y-1.5"
-                    >
+                  <div
+                    key={insp.id}
+                    className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs space-y-1.5"
+                  >
 
-                      <div className="flex items-center justify-between font-semibold">
+                    <div className="flex items-center justify-between font-semibold">
 
-                        <span className="font-mono text-blue-600 dark:text-blue-400">
-                          {inspection.assetId}
-                        </span>
+                      <span className="font-mono text-blue-600 dark:text-blue-400">
+                        {insp.assetId}
+                      </span>
 
-                        <span className="text-[10px] text-slate-400">
-                          {formatDate(
-                            inspection.date
-                          )}
-                        </span>
-
-                      </div>
-
-                      <div className="text-slate-700 dark:text-slate-300">
-
-                        <strong>
-                          {
-                            inspection.inspectorName
-                          }
-                        </strong>{' '}
-
-                        logged condition{' '}
-
-                        <strong>
-                          {
-                            inspection.conditionLabel ||
-                            inspection.condition
-                          }{' '}
-                          (
-                          {
-                            inspection.condition
-                          }
-                          /10)
-                        </strong>
-
-                      </div>
-
-                      {inspection.remarks && (
-                        <p className="text-slate-500 dark:text-slate-400 italic">
-                          "{inspection.remarks}"
-                        </p>
-                      )}
-
-                      <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold pt-1">
-
-                        <ShieldCheck
-                          size={12}
-                        />
-
-                        {inspection.status ||
-                          'Verified'}
-
-                      </div>
+                      <span className="text-[10px] text-slate-400">
+                        {formatDate(insp.date)}
+                      </span>
 
                     </div>
 
-                  )
-                )}
+                    <div className="text-slate-700 dark:text-slate-300">
+
+                      <strong>
+                        {insp.inspectorName}
+                      </strong>{' '}
+
+                      logged condition{' '}
+
+                      <strong>
+                        {insp.conditionLabel ||
+                          insp.condition}{' '}
+                        ({insp.condition}/10)
+                      </strong>
+
+                    </div>
+
+                    {insp.remarks && (
+                      <p className="text-slate-500 dark:text-slate-400 italic">
+                        "{insp.remarks}"
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold pt-1">
+
+                      <ShieldCheck size={12} />
+
+                      {insp.status || 'Verified'}
+
+                    </div>
+
+                  </div>
+
+                ))}
 
               </div>
 
