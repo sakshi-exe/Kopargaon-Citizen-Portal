@@ -1,7 +1,12 @@
-import React from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext.jsx';
+import { supabase } from './lib/supabase.js';
 import AssetDetailModal from './components/ui/AssetDetailModal.jsx';
+
+// Auth
+import Auth from './pages/Auth.jsx';
 
 // Layouts
 import CitizenLayout from './layouts/CitizenLayout.jsx';
@@ -30,53 +35,161 @@ import WardAnalysis from './pages/admin/WardAnalysis.jsx';
 import AdminTransparency from './pages/admin/Transparency.jsx';
 import FieldInspection from './pages/admin/FieldInspection.jsx';
 
-/**
- * RoleRouter: redirects the root URL based on current role.
- */
+/* ─────────────────────────────────────────────────────────────
+   Authentication Guard
+───────────────────────────────────────────────────────────── */
+
+function AuthGuard({ children }) {
+  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+
+      if (mounted) {
+        setSession(data?.session || null);
+        setLoading(false);
+      }
+    };
+
+    checkSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      if (mounted) {
+        setSession(newSession || null);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#07111f',
+          color: '#94a3b8',
+          fontSize: '16px',
+        }}
+      >
+        Loading CivicFix...
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  return children;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Role Router
+───────────────────────────────────────────────────────────── */
+
 function RoleRouter() {
   const { state } = useApp();
+
   return (
-    <Navigate to={state.role === 'admin' ? '/admin' : '/citizen'} replace />
+    <Navigate
+      to={state.role === 'admin' ? '/admin' : '/citizen'}
+      replace
+    />
   );
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Application Routes
+───────────────────────────────────────────────────────────── */
 
 function AppRoutes() {
   return (
     <>
       <Routes>
-        {/* Root redirect based on role */}
-        <Route path="/" element={<RoleRouter />} />
 
-        {/* Citizen routes */}
-        <Route path="/citizen" element={<CitizenLayout />}>
-          <Route index element={<CitizenHome />} />
-          <Route path="map" element={<CitizenCityMap />} />
-          <Route path="scan-qr" element={<QRScanner />} />
-          <Route path="transformations" element={<CitizenTransformationsPage />} />
-          <Route path="report" element={<ReportIssue />} />
-          <Route path="my-reports" element={<MyReports />} />
-          <Route path="projects" element={<CitizenProjects />} />
-          <Route path="transparency" element={<CitizenTransparency />} />
-        </Route>
+        {/* Authentication */}
+        <Route path="/auth" element={<Auth />} />
 
-        {/* Admin routes */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminDashboard />} />
-          <Route path="gis-map" element={<AdminGISMap />} />
-          <Route path="field-inspection" element={<FieldInspection />} />
-          <Route path="transformations" element={<CitizenTransformationsPage />} />
-          <Route path="infrastructure" element={<AdminInfrastructure />} />
-          <Route path="landuse" element={<AdminLandUse />} />
-          <Route path="projects" element={<AdminProjects />} />
-          <Route path="issues" element={<AdminCitizenIssues />} />
-          <Route path="analytics" element={<AdminAnalytics />} />
-          <Route path="insights" element={<AdminPlanningInsights />} />
-          <Route path="ward-analysis" element={<WardAnalysis />} />
-          <Route path="transparency" element={<AdminTransparency />} />
-        </Route>
+        {/* Protected Application */}
+        <Route
+          path="/*"
+          element={
+            <AuthGuard>
+              <Routes>
 
-        {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+                {/* Root redirect based on role */}
+                <Route path="/" element={<RoleRouter />} />
+
+                {/* Citizen routes */}
+                <Route path="/citizen" element={<CitizenLayout />}>
+                  <Route index element={<CitizenHome />} />
+                  <Route path="map" element={<CitizenCityMap />} />
+                  <Route path="scan-qr" element={<QRScanner />} />
+                  <Route
+                    path="transformations"
+                    element={<CitizenTransformationsPage />}
+                  />
+                  <Route path="report" element={<ReportIssue />} />
+                  <Route path="my-reports" element={<MyReports />} />
+                  <Route path="projects" element={<CitizenProjects />} />
+                  <Route
+                    path="transparency"
+                    element={<CitizenTransparency />}
+                  />
+                </Route>
+
+                {/* Admin routes */}
+                <Route path="/admin" element={<AdminLayout />}>
+                  <Route index element={<AdminDashboard />} />
+                  <Route path="gis-map" element={<AdminGISMap />} />
+                  <Route
+                    path="field-inspection"
+                    element={<FieldInspection />}
+                  />
+                  <Route
+                    path="transformations"
+                    element={<CitizenTransformationsPage />}
+                  />
+                  <Route
+                    path="infrastructure"
+                    element={<AdminInfrastructure />}
+                  />
+                  <Route path="landuse" element={<AdminLandUse />} />
+                  <Route path="projects" element={<AdminProjects />} />
+                  <Route path="issues" element={<AdminCitizenIssues />} />
+                  <Route path="analytics" element={<AdminAnalytics />} />
+                  <Route
+                    path="insights"
+                    element={<AdminPlanningInsights />}
+                  />
+                  <Route path="ward-analysis" element={<WardAnalysis />} />
+                  <Route
+                    path="transparency"
+                    element={<AdminTransparency />}
+                  />
+                </Route>
+
+                {/* Catch-all */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+
+              </Routes>
+            </AuthGuard>
+          }
+        />
+
       </Routes>
 
       {/* Global Asset QR & Transparency Profile Modal */}
@@ -84,6 +197,10 @@ function AppRoutes() {
     </>
   );
 }
+
+/* ─────────────────────────────────────────────────────────────
+   App
+───────────────────────────────────────────────────────────── */
 
 export default function App() {
   return (

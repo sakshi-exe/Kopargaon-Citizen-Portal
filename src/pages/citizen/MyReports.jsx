@@ -3,10 +3,14 @@ import { supabase } from '../../lib/supabase.js';
 import Header from '../../components/ui/Header.jsx';
 import { StatusBadge } from '../../components/ui/Badge.jsx';
 import { formatDate, getRelativeTime } from '../../utils/formatters.js';
-import { MapPin, Clock, AlertCircle, RefreshCw } from 'lucide-react';
+import {
+  MapPin,
+  Clock,
+  AlertCircle,
+  RefreshCw,
+} from 'lucide-react';
 
 const STEP_ORDER = [
-  'pending',
   'Reported',
   'Under Review',
   'Assigned',
@@ -32,14 +36,9 @@ function StatusTimeline({ currentStatus }) {
 
   return (
     <div className="flex items-center gap-1 mt-2 flex-wrap">
-      {STEP_ORDER.slice(1).map((s, i) => {
-        const actualIndex = i + 1;
-
-        const done =
-          currentIdx >= actualIndex;
-
-        const current =
-          status === s;
+      {STEP_ORDER.map((s, i) => {
+        const done = currentIdx >= i;
+        const current = status === s;
 
         return (
           <React.Fragment key={s}>
@@ -67,10 +66,10 @@ function StatusTimeline({ currentStatus }) {
               </span>
             </div>
 
-            {i < STEP_ORDER.slice(1).length - 1 && (
+            {i < STEP_ORDER.length - 1 && (
               <div
                 className={`flex-1 h-0.5 min-w-[8px] mb-3 ${
-                  currentIdx > actualIndex
+                  currentIdx > i
                     ? 'bg-green-500'
                     : 'bg-slate-200 dark:bg-slate-700'
                 }`}
@@ -93,37 +92,111 @@ export default function MyReports() {
     setError(null);
 
     try {
-      const { data, error: supabaseError } = await supabase
+      console.log('==============================');
+      console.log('MY REPORTS: FETCH START');
+      console.log('==============================');
+
+      // --------------------------------------------------
+      // 1. GET CURRENTLY LOGGED-IN USER
+      // --------------------------------------------------
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      console.log('CURRENT AUTH USER:', user);
+      console.log('CURRENT USER ID:', user?.id);
+      console.log('AUTH ERROR:', userError);
+
+      if (userError) {
+        throw userError;
+      }
+
+      if (!user) {
+        console.error('NO LOGGED-IN USER FOUND');
+
+        setIssues([]);
+        setError('No logged-in user found. Please sign in again.');
+
+        return;
+      }
+
+      // --------------------------------------------------
+      // 2. FETCH ISSUES
+      // --------------------------------------------------
+
+      const {
+        data,
+        error: supabaseError,
+      } = await supabase
         .from('issues')
         .select('*')
         .order('created_at', {
           ascending: false,
         });
 
-      if (supabaseError) {
-        console.error(
-          'Supabase My Reports error:',
-          supabaseError
-        );
+      console.log('MY REPORTS DATA:', data);
+      console.log('MY REPORTS COUNT:', data?.length);
+      console.log('MY REPORTS ERROR:', supabaseError);
 
-        setError(supabaseError.message);
-        return;
+      if (supabaseError) {
+        throw supabaseError;
       }
 
+      // --------------------------------------------------
+      // 3. TEMPORARY DEBUG
+      // --------------------------------------------------
+
+      if (data && data.length > 0) {
+        console.log('------------------------------');
+        console.log('REPORT USER IDS:');
+
+        data.forEach((issue) => {
+          console.log({
+            reportId: issue.id,
+            description: issue.description,
+            reportUserId: issue.user_id,
+            currentUserId: user.id,
+            matches:
+              issue.user_id === user.id,
+          });
+        });
+
+        console.log('------------------------------');
+      }
+
+      // --------------------------------------------------
+      // 4. SHOW REPORTS
+      // --------------------------------------------------
+
       setIssues(data || []);
+
     } catch (err) {
       console.error(
-        'Unexpected My Reports error:',
+        'MY REPORTS ERROR:',
         err
       );
 
       setError(
-        'Unable to load your reports.'
+        err?.message ||
+          'Unable to load your reports.'
       );
+
+      setIssues([]);
+
     } finally {
       setLoading(false);
+
+      console.log('==============================');
+      console.log('MY REPORTS: FETCH END');
+      console.log('==============================');
     }
   };
+
+  // --------------------------------------------------
+  // LOAD REPORTS ON PAGE OPEN
+  // --------------------------------------------------
 
   useEffect(() => {
     fetchIssues();
@@ -131,6 +204,8 @@ export default function MyReports() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+
+      {/* HEADER */}
 
       <Header
         title="My Reports"
@@ -143,6 +218,7 @@ export default function MyReports() {
 
         {loading && (
           <div className="flex flex-col items-center justify-center h-64 text-center">
+
             <RefreshCw
               size={28}
               className="text-teal-600 animate-spin mb-3"
@@ -151,6 +227,7 @@ export default function MyReports() {
             <p className="text-sm text-slate-500 dark:text-slate-400">
               Loading your reports...
             </p>
+
           </div>
         )}
 
@@ -231,9 +308,9 @@ export default function MyReports() {
 
                     <div className="flex items-start justify-between gap-3 mb-2">
 
-                      <div>
+                      <div className="min-w-0">
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
 
                           <span className="text-xs font-mono text-slate-400">
                             {issue.id}
@@ -244,20 +321,21 @@ export default function MyReports() {
                           </span>
 
                           <span className="text-xs text-slate-500">
-                            {issue.category}
+                            {issue.category || 'Civic Issue'}
                           </span>
 
                         </div>
 
                         <h3 className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
 
-                          {issue.description &&
-                          issue.description.length > 80
-                            ? `${issue.description.slice(
-                                0,
-                                80
-                              )}…`
-                            : issue.description}
+                          {issue.description
+                            ? issue.description.length > 80
+                              ? `${issue.description.slice(
+                                  0,
+                                  80
+                                )}…`
+                              : issue.description
+                            : 'No description'}
 
                         </h3>
 
@@ -274,28 +352,35 @@ export default function MyReports() {
                     <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 mb-3 flex-wrap">
 
                       <span className="flex items-center gap-1">
+
                         <MapPin size={11} />
 
                         {issue.location ||
                           'Location selected'}
+
                       </span>
 
                       {submittedDate && (
                         <span className="flex items-center gap-1">
+
                           <Clock size={11} />
 
                           {getRelativeTime(
                             submittedDate
                           )}
+
                         </span>
                       )}
 
                       {submittedDate && (
                         <span>
+
                           Submitted:{' '}
+
                           {formatDate(
                             submittedDate
                           )}
+
                         </span>
                       )}
 
@@ -306,16 +391,29 @@ export default function MyReports() {
                     {issue.latitude != null &&
                       issue.longitude != null && (
                         <div className="text-[11px] text-slate-400 mb-3">
+
                           📍{' '}
+
                           {Number(
                             issue.latitude
                           ).toFixed(5)}
+
                           ,{' '}
+
                           {Number(
                             issue.longitude
                           ).toFixed(5)}
+
                         </div>
                       )}
+
+                    {/* CITIZEN */}
+
+                    {issue.citizen_name && (
+                      <div className="text-[11px] text-slate-400 mb-2">
+                        Reported by: {issue.citizen_name}
+                      </div>
+                    )}
 
                     {/* TIMELINE */}
 
