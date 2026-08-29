@@ -13,6 +13,10 @@ import {
 } from '../../utils/formatters.js';
 
 import {
+  computeIssuePriority,
+} from '../../utils/issuePriority.js';
+
+import {
   Search,
   MapPin,
   CheckCircle,
@@ -210,10 +214,25 @@ export default function AdminCitizenIssues() {
       }
 
 
+      // ==================================================
+      // REAL SUPABASE DATA → PRIORITY ENGINE
+      // ==================================================
+
       const mappedIssues =
-        (data || []).map(
-          mapSupabaseIssue
-        );
+        (data || [])
+          .map(mapSupabaseIssue)
+          .map((issue) => ({
+            ...issue,
+
+            /*
+             * Priority is calculated from the
+             * actual citizen complaint.
+             *
+             * No static issue data is used here.
+             */
+            aiPriority:
+              computeIssuePriority(issue),
+          }));
 
 
       setIssues(mappedIssues);
