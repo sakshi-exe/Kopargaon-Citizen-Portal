@@ -1,36 +1,108 @@
 @import 'leaflet/dist/leaflet.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+
+/* =========================================================
+   CIVICFIX — TRICOLOUR GRADIENT THEME
+   Rich Orange → White → Green
+========================================================= */
+
 @layer base {
+
   * {
     box-sizing: border-box;
   }
 
   html {
     font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100%;
   }
 
   body {
-    @apply bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100;
     margin: 0;
     padding: 0;
+    min-height: 100vh;
+
+    color: #0f172a;
+
+    /*
+      MAIN TRICOLOUR BACKGROUND
+
+      Left   → richer saffron/orange
+      Center → clean white
+      Right  → richer green
+    */
+    background:
+      linear-gradient(
+        115deg,
+        #ffb347 0%,
+        #ffd08a 16%,
+        #fff5e6 30%,
+        #ffffff 47%,
+        #ffffff 57%,
+        #edf8ef 70%,
+        #c8edcf 84%,
+        #9fdfa9 100%
+      );
+
+    background-attachment: fixed;
+    background-size: cover;
+  }
+
+  #root {
+    min-height: 100vh;
+
+    /*
+      Adds a second soft layer so the gradient
+      remains visible throughout the application.
+    */
+    background:
+      linear-gradient(
+        115deg,
+        rgba(255, 179, 71, 0.42) 0%,
+        rgba(255, 208, 138, 0.18) 18%,
+        rgba(255, 255, 255, 0.05) 45%,
+        rgba(255, 255, 255, 0.05) 58%,
+        rgba(200, 237, 207, 0.18) 80%,
+        rgba(159, 223, 169, 0.42) 100%
+      );
+
+    background-attachment: fixed;
+    background-size: cover;
+  }
+
+  ::selection {
+    background: #bbf7d0;
+    color: #14532d;
   }
 
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
+
   ::-webkit-scrollbar-track {
-    @apply bg-slate-100 dark:bg-slate-800;
+    background: rgba(255, 255, 255, 0.55);
   }
+
   ::-webkit-scrollbar-thumb {
-    @apply bg-slate-300 dark:bg-slate-600 rounded-full;
+    background: #b7c8bc;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #8fa99a;
   }
 }
 
-/* Leaflet fixes */
+
+/* =========================================================
+   LEAFLET
+========================================================= */
+
 .leaflet-container {
   font-family: 'Inter', system-ui, sans-serif !important;
   z-index: 0;
@@ -38,7 +110,10 @@
 
 .leaflet-popup-content-wrapper {
   border-radius: 12px !important;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.15) !important;
+
+  box-shadow:
+    0 4px 24px rgba(15, 23, 42, 0.12) !important;
+
   padding: 0 !important;
 }
 
@@ -53,71 +128,496 @@
 
 .leaflet-control-zoom {
   border: none !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+
+  box-shadow:
+    0 2px 8px rgba(15, 23, 42, 0.12) !important;
 }
 
 .leaflet-control-zoom a {
   border-radius: 8px !important;
+
   width: 36px !important;
   height: 36px !important;
   line-height: 36px !important;
+
   font-size: 18px !important;
   font-weight: 300 !important;
-  color: #374151 !important;
-  background: white !important;
+
+  color: #334155 !important;
+  background: #ffffff !important;
+
   margin-bottom: 2px;
+
+  border: 1px solid #e2e8f0 !important;
 }
 
-.dark .leaflet-control-zoom a {
-  background: #1e293b !important;
-  color: #e2e8f0 !important;
-}
 
-/* Custom map marker */
+/* =========================================================
+   CUSTOM MAP MARKER
+========================================================= */
+
 .custom-marker {
   display: flex;
   align-items: center;
   justify-content: center;
+
   border-radius: 50% 50% 50% 0;
+
   transform: rotate(-45deg);
-  border: 2px solid rgba(255,255,255,0.8);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+
+  border: 2px solid rgba(255, 255, 255, 0.9);
+
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
 .custom-marker-inner {
   transform: rotate(45deg);
+
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* Pulse animation for issues */
+
+/* =========================================================
+   PULSE ANIMATION
+========================================================= */
+
 @keyframes pulse-ring {
-  0% { transform: scale(0.8); opacity: 1; }
-  100% { transform: scale(1.8); opacity: 0; }
+
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+
 }
+
 .pulse-marker::before {
   content: '';
+
   position: absolute;
+
   width: 100%;
   height: 100%;
+
   border-radius: 50%;
+
   background: inherit;
-  animation: pulse-ring 2s ease-out infinite;
+
+  animation:
+    pulse-ring 2s ease-out infinite;
+
   opacity: 0.4;
 }
 
-/* Analytics chart container */
+
+/* =========================================================
+   RECHARTS
+========================================================= */
+
 .recharts-wrapper {
   font-family: 'Inter', sans-serif !important;
 }
 
-/* Sidebar transition */
+
+/* =========================================================
+   SIDEBAR
+========================================================= */
+
 .sidebar-transition {
-  transition: transform 0.2s ease, width 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    width 0.2s ease;
 }
 
-/* Status badge */
+
+/* =========================================================
+   STATUS BADGE
+========================================================= */
+
 .status-badge {
   @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+}
+
+
+/* =========================================================
+   SOFT SURFACES
+========================================================= */
+
+.bg-slate-50 {
+  background-color: rgba(248, 250, 252, 0.78) !important;
+}
+
+.border-slate-200 {
+  border-color: rgba(226, 232, 240, 0.85) !important;
+}
+
+
+/* =========================================================
+   KEEP APPLICATION CARDS LIGHT
+========================================================= */
+
+.dark\:bg-slate-950 {
+  background-color: transparent !important;
+}
+
+.dark\:bg-slate-900 {
+  background-color: rgba(255, 255, 255, 0.94) !important;
+}
+
+.dark\:bg-slate-800 {
+  background-color: rgba(255, 255, 255, 0.94) !important;
+}
+
+.dark\:bg-slate-700 {
+  background-color: rgba(248, 250, 252, 0.96) !important;
+}
+
+
+/* =========================================================
+   CIVIC GRADIENT
+========================================================= */
+
+.civic-gradient {
+  background:
+    linear-gradient(
+      120deg,
+      #ff9f43 0%,
+      #ffbf69 25%,
+      #ffffff 48%,
+      #ffffff 55%,
+      #bfe8c6 76%,
+      #83d394 100%
+    );
+}
+
+
+/* =========================================================
+   SOFT CIVIC GRADIENT
+========================================================= */
+
+.civic-gradient-soft {
+  background:
+    linear-gradient(
+      120deg,
+      rgba(255, 159, 67, 0.28) 0%,
+      rgba(255, 191, 105, 0.12) 25%,
+      rgba(255, 255, 255, 0.04) 50%,
+      rgba(191, 232, 198, 0.12) 75%,
+      rgba(131, 211, 148, 0.28) 100%
+    );
+}
+
+
+/* =========================================================
+   GLASS CARD SUPPORT
+========================================================= */
+
+.civic-card {
+  background: rgba(255, 255, 255, 0.91);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+
+  box-shadow:
+    0 8px 30px rgba(15, 23, 42, 0.08);
+
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+
+/* =========================================================
+   TRICOLOUR GLOW
+========================================================= */
+
+.civic-glow {
+  position: relative;
+}
+
+.civic-glow::before {
+  content: '';
+
+  position: absolute;
+  inset: -40px;
+
+  z-index: -1;
+
+  background:
+    radial-gradient(
+      circle at 10% 30%,
+      rgba(255, 159, 67, 0.24),
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at 90% 70%,
+      rgba(34, 197, 94, 0.20),
+      transparent 35%
+    );
+
+  pointer-events: none;
+}
+
+
+/* =========================================================
+   PAGE BACKGROUND HELPER
+========================================================= */
+
+.tricolour-page {
+  min-height: 100vh;
+
+  background:
+    linear-gradient(
+      115deg,
+      #ffb347 0%,
+      #ffd08a 16%,
+      #fff5e6 30%,
+      #ffffff 47%,
+      #ffffff 57%,
+      #edf8ef 70%,
+      #c8edcf 84%,
+      #9fdfa9 100%
+    );
+
+  background-attachment: fixed;
+}
+
+
+/* =========================================================
+   REMOVE DARK MODE VISUAL OVERRIDES
+========================================================= */
+
+.dark {
+  color-scheme: light;
+}
+
+
+/*
+  Keep the interface visually light even if some
+  components still contain Tailwind dark-mode classes.
+*/
+
+.dark .text-white {
+  color: #0f172a !important;
+}
+
+.dark .text-slate-100 {
+  color: #1e293b !important;
+}
+
+.dark .text-slate-200 {
+  color: #334155 !important;
+}
+
+.dark .text-slate-300 {
+  color: #475569 !important;
+}
+
+.dark .text-slate-400 {
+  color: #64748b !important;
+}
+
+.dark .border-slate-700 {
+  border-color: rgba(226, 232, 240, 0.85) !important;
+}
+
+.dark .border-slate-800 {
+  border-color: rgba(226, 232, 240, 0.85) !important;
+}
+
+
+/* =========================================================
+   RESPONSIVE BACKGROUND
+========================================================= */
+
+@media (max-width: 768px) {
+
+  body {
+    background:
+      linear-gradient(
+        145deg,
+        #ffb347 0%,
+        #ffe0ad 24%,
+        #ffffff 48%,
+        #eef9f0 72%,
+        #a8e1b1 100%
+      );
+
+    background-attachment: fixed;
+  }
+
+  #root {
+    background:
+      linear-gradient(
+        145deg,
+        rgba(255, 179, 71, 0.35),
+        rgba(255, 255, 255, 0.04),
+        rgba(168, 225, 177, 0.35)
+      );
+
+    background-attachment: fixed;
+  }
+}
+
+/* =========================================================
+   CIVICFIX — LIGHT SIDEBAR
+   Remove dark sidebar appearance
+========================================================= */
+
+/* Common sidebar dark backgrounds */
+aside,
+.sidebar,
+[class*="sidebar"] {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.94) 0%,
+      rgba(255, 255, 255, 0.88) 45%,
+      rgba(239, 250, 241, 0.92) 100%
+    ) !important;
+
+  color: #0f172a !important;
+
+  border-color: rgba(226, 232, 240, 0.8) !important;
+
+  box-shadow:
+    4px 0 24px rgba(15, 23, 42, 0.06) !important;
+}
+
+
+/* Kill Tailwind dark sidebar backgrounds */
+aside.dark\:bg-slate-950,
+aside.dark\:bg-slate-900,
+aside.bg-slate-950,
+aside.bg-slate-900 {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.96),
+      rgba(255, 255, 255, 0.91) 55%,
+      rgba(232, 248, 235, 0.94)
+    ) !important;
+}
+
+
+/* Sidebar text */
+aside .text-white,
+aside .text-slate-100,
+aside .text-slate-200,
+aside .text-slate-300 {
+  color: #334155 !important;
+}
+
+
+/* Sidebar muted text */
+aside .text-slate-400,
+aside .text-slate-500 {
+  color: #64748b !important;
+}
+
+
+/* Sidebar borders */
+aside .border-slate-700,
+aside .border-slate-800 {
+  border-color: rgba(226, 232, 240, 0.85) !important;
+}
+
+
+/* =========================================================
+   SIDEBAR ACTIVE ITEM
+========================================================= */
+
+aside .bg-blue-600,
+aside .bg-blue-500 {
+  background:
+    linear-gradient(
+      135deg,
+      #dff7e5,
+      #ecfdf5
+    ) !important;
+
+  color: #15803d !important;
+
+  box-shadow:
+    0 3px 12px rgba(34, 197, 94, 0.12) !important;
+}
+
+
+/* Active item text/icon */
+aside .bg-blue-600 *,
+aside .bg-blue-500 * {
+  color: #15803d !important;
+}
+
+
+/* =========================================================
+   SIDEBAR HOVER
+========================================================= */
+
+aside a:hover,
+aside button:hover {
+  background-color: rgba(255, 237, 213, 0.55) !important;
+  color: #166534 !important;
+}
+
+
+/* =========================================================
+   REMOVE DARK MODE COLORS INSIDE SIDEBAR
+========================================================= */
+
+.dark aside {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.96) 0%,
+      rgba(255, 255, 255, 0.92) 50%,
+      rgba(232, 248, 235, 0.94) 100%
+    ) !important;
+
+  color: #0f172a !important;
+}
+
+.dark aside .text-white,
+.dark aside .text-slate-100,
+.dark aside .text-slate-200,
+.dark aside .text-slate-300 {
+  color: #334155 !important;
+}
+
+.dark aside .text-slate-400,
+.dark aside .text-slate-500 {
+  color: #64748b !important;
+}
+
+
+/* =========================================================
+   TOP HEADER — KEEP LIGHT
+========================================================= */
+
+header {
+  background: rgba(255, 255, 255, 0.92) !important;
+
+  color: #0f172a !important;
+
+  border-color: rgba(226, 232, 240, 0.8) !important;
+
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+
+/* =========================================================
+   DARK MODE TOGGLE — HIDE
+========================================================= */
+
+/* Moon / theme toggle buttons */
+button[aria-label*="dark" i],
+button[aria-label*="theme" i],
+button[title*="dark" i],
+button[title*="theme" i] {
+  display: none !important;
 }
