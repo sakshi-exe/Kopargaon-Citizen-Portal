@@ -1,0 +1,165 @@
+@import 'leaflet/dist/leaflet.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-[#F8FAFC] dark:bg-[#090D16] text-[#0F172A] dark:text-[#F1F5F9];
+    margin: 0;
+    padding: 0;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-slate-100 dark:bg-slate-900;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 dark:bg-slate-700 rounded-full hover:bg-slate-400 dark:hover:bg-slate-600;
+  }
+}
+
+/* Tricolour Accent Utilities */
+.civic-tricolour-stripe {
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(90deg, #FF9933 0%, #FF9933 33.33%, #FFFFFF 33.33%, #FFFFFF 66.66%, #138808 66.66%, #138808 100%);
+}
+
+.dark .civic-tricolour-stripe {
+  background: linear-gradient(90deg, #FF9933 0%, #FF9933 33.33%, #E2E8F0 33.33%, #E2E8F0 66.66%, #138808 66.66%, #138808 100%);
+}
+
+.civic-tricolour-subtle {
+  background: linear-gradient(90deg, rgba(255,153,51,0.2) 0%, rgba(255,255,255,0.4) 50%, rgba(19,136,8,0.2) 100%);
+}
+
+/* Leaflet Customizations */
+.leaflet-container {
+  font-family: 'Inter', system-ui, sans-serif !important;
+  z-index: 0;
+  background-color: #f1f5f9 !important;
+}
+
+.dark .leaflet-container {
+  background-color: #0f172a !important;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 16px !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.25) !important;
+  padding: 0 !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  background: #ffffff !important;
+}
+
+.dark .leaflet-popup-content-wrapper {
+  background: #0f172a !important;
+  border: 1px solid rgba(51, 65, 85, 0.8) !important;
+  color: #f8fafc !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  min-width: 270px;
+}
+
+.leaflet-popup-tip-container {
+  display: none;
+}
+
+.leaflet-control-zoom {
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+}
+
+.dark .leaflet-control-zoom {
+  border: 1px solid rgba(51, 65, 85, 0.8) !important;
+}
+
+.leaflet-control-zoom a {
+  width: 34px !important;
+  height: 34px !important;
+  line-height: 34px !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  color: #1e293b !important;
+  background: white !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  transition: background-color 0.15s ease;
+}
+
+.leaflet-control-zoom a:hover {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+.dark .leaflet-control-zoom a {
+  background: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-bottom: 1px solid #334155 !important;
+}
+
+.dark .leaflet-control-zoom a:hover {
+  background: #334155 !important;
+}
+
+/* Pulse animation for issues */
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.0); opacity: 0; }
+}
+
+.pulse-marker::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: inherit;
+  animation: pulse-ring 2.2s cubic-bezier(0.25, 0, 0.2, 1) infinite;
+  opacity: 0.5;
+}
+
+/* Analytics chart container */
+.recharts-wrapper {
+  font-family: 'Inter', sans-serif !important;
+}
+
+.recharts-default-tooltip {
+  border-radius: 10px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+.dark .recharts-default-tooltip {
+  background-color: #0f172a !important;
+  border: 1px solid #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* Sidebar transition */
+.sidebar-transition {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), width 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Status badge */
+.status-badge {
+  @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-tight;
+}
+
