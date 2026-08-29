@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext.jsx';
 import Header from '../../components/ui/Header.jsx';
 import { QRCodeSVG } from '../../components/ui/QRCodeView.jsx';
@@ -47,10 +47,54 @@ export default function FieldInspection() {
   const [successBanner, setSuccessBanner] =
     useState(false);
 
+  // Supabase inspection records
+  const [dbInspections, setDbInspections] =
+    useState([]);
+
+  const [loadingInspections, setLoadingInspections] =
+    useState(true);
+
+  // ─────────────────────────────────────
+  // SELECTED ASSET
+  // ─────────────────────────────────────
+
   const selectedAsset =
     state.infrastructure.find(
       (asset) => asset.id === selectedAssetId
     ) || state.infrastructure[0];
+
+  // ─────────────────────────────────────
+  // LOAD INSPECTIONS FROM SUPABASE
+  // ─────────────────────────────────────
+
+  useEffect(() => {
+    const loadInspections = async () => {
+      setLoadingInspections(true);
+
+      const { data, error } = await supabase
+        .from('inspections')
+        .select('*')
+        .order('inspected_at', {
+          ascending: false,
+        });
+
+      if (error) {
+        console.error(
+          'FAILED TO LOAD INSPECTIONS:',
+          error
+        );
+
+        setDbInspections([]);
+        setLoadingInspections(false);
+        return;
+      }
+
+      setDbInspections(data || []);
+      setLoadingInspections(false);
+    };
+
+    loadInspections();
+  }, []);
 
   // ─────────────────────────────────────
   // PHOTO SELECTION
@@ -145,22 +189,24 @@ export default function FieldInspection() {
         await uploadEvidencePhoto();
 
       // 2. Save inspection to Supabase
-      const { data: inspectionData, error } =
-        await supabase
-          .from('inspections')
-          .insert([
-            {
-              asset_id: selectedAsset.id,
-              inspector_name: inspectorName.trim(),
-              condition_level: conditionLevel,
-              condition_score: conditionScore,
-              remarks: remarks.trim() || null,
-              evidence_photo_url: photoUrl,
-              status: 'Verified',
-            },
-          ])
-          .select()
-          .single();
+      const {
+        data: inspectionData,
+        error,
+      } = await supabase
+        .from('inspections')
+        .insert([
+          {
+            asset_id: selectedAsset.id,
+            inspector_name: inspectorName.trim(),
+            condition_level: conditionLevel,
+            condition_score: conditionScore,
+            remarks: remarks.trim() || null,
+            evidence_photo_url: photoUrl,
+            status: 'Verified',
+          },
+        ])
+        .select()
+        .single();
 
       if (error) {
         console.error(
@@ -180,7 +226,13 @@ export default function FieldInspection() {
         inspectionData
       );
 
-      // 3. Keep existing local app workflow
+      // 3. Add newly created DB record to audit logs
+      setDbInspections((prev) => [
+        inspectionData,
+        ...prev,
+      ]);
+
+      // 4. Keep existing local app workflow
       dispatch({
         type: 'SUBMIT_INSPECTION',
         payload: {
@@ -195,10 +247,10 @@ export default function FieldInspection() {
         },
       });
 
-      // 4. Show success
+      // 5. Show success
       setSuccessBanner(true);
 
-      // 5. Clear form evidence
+      // 6. Clear form evidence
       setRemarks('');
       setPhotoPreview(null);
       setPhotoFile(null);
@@ -215,12 +267,18 @@ export default function FieldInspection() {
       );
 
       alert(
-        `Something went wrong:\n\n${error.message || error}`
+        `Something went wrong:\n\n${
+          error.message || error
+        }`
       );
     } finally {
       setSubmitting(false);
     }
   };
+
+  // ─────────────────────────────────────
+  // CONDITION OPTIONS
+  // ─────────────────────────────────────
 
   const conditionOptions = [
     {
@@ -249,6 +307,10 @@ export default function FieldInspection() {
     },
   ];
 
+  // ─────────────────────────────────────
+  // UI
+  // ─────────────────────────────────────
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
 
@@ -259,7 +321,7 @@ export default function FieldInspection() {
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
-        {/* SUCCESS */}
+        {/* SUCCESS BANNER */}
 
         {successBanner && (
           <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 flex items-center justify-between shadow-sm">
@@ -420,33 +482,41 @@ export default function FieldInspection() {
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
 
-                  {conditionOptions.map((condition) => (
+                  {conditionOptions.map(
+                    (condition) => (
 
-                    <button
-                      type="button"
-                      key={condition.label}
-                      onClick={() => {
-                        setConditionLevel(condition.label);
-                        setConditionScore(condition.score);
-                      }}
-                      className={`p-3 rounded-xl border-2 text-center transition-all ${
-                        conditionLevel === condition.label
-                          ? `${condition.color} font-bold shadow-sm`
-                          : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-300'
-                      }`}
-                    >
+                      <button
+                        type="button"
+                        key={condition.label}
+                        onClick={() => {
+                          setConditionLevel(
+                            condition.label
+                          );
 
-                      <div className="text-sm">
-                        {condition.label}
-                      </div>
+                          setConditionScore(
+                            condition.score
+                          );
+                        }}
+                        className={`p-3 rounded-xl border-2 text-center transition-all ${
+                          conditionLevel ===
+                          condition.label
+                            ? `${condition.color} font-bold shadow-sm`
+                            : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                        }`}
+                      >
 
-                      <div className="text-[10px] opacity-75 mt-0.5">
-                        {condition.score} / 10
-                      </div>
+                        <div className="text-sm">
+                          {condition.label}
+                        </div>
 
-                    </button>
+                        <div className="text-[10px] opacity-75 mt-0.5">
+                          {condition.score} / 10
+                        </div>
 
-                  ))}
+                      </button>
+
+                    )
+                  )}
 
                 </div>
 
@@ -591,7 +661,9 @@ export default function FieldInspection() {
 
                     <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {selectedAsset.type} ·{' '}
-                      {getWardName(selectedAsset.wardId)}
+                      {getWardName(
+                        selectedAsset.wardId
+                      )}
                     </div>
 
                   </div>
@@ -662,7 +734,8 @@ export default function FieldInspection() {
                     </span>
 
                     <span className="font-semibold text-slate-700 dark:text-slate-300">
-                      {selectedAsset.contractor || 'KMC PWD'}
+                      {selectedAsset.contractor ||
+                        'KMC PWD'}
                     </span>
 
                   </div>
@@ -674,7 +747,9 @@ export default function FieldInspection() {
                     </span>
 
                     <span className="font-semibold text-slate-700 dark:text-slate-300">
-                      {selectedAsset.citizenReports || 0} tickets
+                      {selectedAsset.citizenReports ||
+                        0}{' '}
+                      tickets
                     </span>
 
                   </div>
@@ -719,62 +794,109 @@ export default function FieldInspection() {
                 Recent Field Inspection Audit Logs
               </h4>
 
-              <div className="space-y-3">
+              {/* LOADING */}
 
-                {state.inspections.map((insp) => (
+              {loadingInspections ? (
 
-                  <div
-                    key={insp.id}
-                    className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs space-y-1.5"
-                  >
+                <div className="text-xs text-slate-400 py-6 text-center">
+                  Loading inspection records...
+                </div>
 
-                    <div className="flex items-center justify-between font-semibold">
+              ) : dbInspections.length === 0 ? (
 
-                      <span className="font-mono text-blue-600 dark:text-blue-400">
-                        {insp.assetId}
-                      </span>
+                <div className="text-xs text-slate-400 py-6 text-center">
+                  No inspection records found.
+                </div>
 
-                      <span className="text-[10px] text-slate-400">
-                        {formatDate(insp.date)}
-                      </span>
+              ) : (
+
+                <div className="space-y-3">
+
+                  {dbInspections.map((insp) => (
+
+                    <div
+                      key={insp.id}
+                      className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs space-y-1.5"
+                    >
+
+                      {/* ID + DATE */}
+
+                      <div className="flex items-center justify-between font-semibold">
+
+                        <span className="font-mono text-blue-600 dark:text-blue-400">
+                          {insp.asset_id}
+                        </span>
+
+                        <span className="text-[10px] text-slate-400">
+                          {formatDate(
+                            insp.inspected_at
+                          )}
+                        </span>
+
+                      </div>
+
+                      {/* INSPECTION DETAILS */}
+
+                      <div className="text-slate-700 dark:text-slate-300">
+
+                        <strong>
+                          {insp.inspector_name}
+                        </strong>{' '}
+
+                        logged condition{' '}
+
+                        <strong>
+                          {insp.condition_level}{' '}
+                          ({insp.condition_score}/10)
+                        </strong>
+
+                      </div>
+
+                      {/* REMARKS */}
+
+                      {insp.remarks && (
+
+                        <p className="text-slate-500 dark:text-slate-400 italic">
+                          "{insp.remarks}"
+                        </p>
+
+                      )}
+
+                      {/* STATUS */}
+
+                      <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold pt-1">
+
+                        <ShieldCheck size={12} />
+
+                        {insp.status || 'Verified'}
+
+                      </div>
+
+                      {/* PHOTO */}
+
+                      {insp.evidence_photo_url && (
+
+                        <a
+                          href={
+                            insp.evidence_photo_url
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 font-semibold hover:underline pt-1"
+                        >
+                          <Camera size={11} />
+                          View Evidence Photo
+                        </a>
+
+                      )}
 
                     </div>
 
-                    <div className="text-slate-700 dark:text-slate-300">
+                  ))}
 
-                      <strong>
-                        {insp.inspectorName}
-                      </strong>{' '}
+                </div>
 
-                      logged condition{' '}
-
-                      <strong>
-                        {insp.conditionLabel ||
-                          insp.condition}{' '}
-                        ({insp.condition}/10)
-                      </strong>
-
-                    </div>
-
-                    {insp.remarks && (
-                      <p className="text-slate-500 dark:text-slate-400 italic">
-                        "{insp.remarks}"
-                      </p>
-                    )}
-
-                    <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold pt-1">
-
-                      <ShieldCheck size={12} />
-
-                      {insp.status || 'Verified'}
-
-                    </div>
-
-                  </div>
-
-                ))}
-
-              </div>
+              )}
 
             </div>
 
