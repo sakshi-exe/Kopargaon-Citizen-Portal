@@ -235,13 +235,18 @@ export default function AdminCitizenIssues() {
     setUpdatingId(issueId);
 
     try {
-      const { error: updateError } =
-        await supabase
-          .from('issues')
-          .update({
-            status: next,
-          })
-          .eq('id', issueId);
+      const { data: updatedIssue, error: updateError } =
+  await supabase
+    .from('issues')
+    .update({
+      status: next,
+    })
+    .eq('id', issueId)
+    .select('id, status')
+    .single();
+
+console.log('UPDATED ISSUE:', updatedIssue);
+console.log('UPDATE ERROR:', updateError);
 
       if (updateError) {
         console.error(
