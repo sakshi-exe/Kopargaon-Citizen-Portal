@@ -25,6 +25,7 @@ import {
 } from '../../utils/formatters.js';
 
 import { getWardName } from '../../data/wards.js';
+
 import {
   computeAllWardPriorities,
   TIER_STYLES,
@@ -52,6 +53,7 @@ import {
 const RESOLVED_STATUSES = [
   'Resolved',
   'Verified',
+  'Closed',
 ];
 
 const normalizeStatus = (status) => {
@@ -61,6 +63,14 @@ const normalizeStatus = (status) => {
 
   if (value === 'pending') {
     return 'Reported';
+  }
+
+  if (value === 'under_review') {
+    return 'Under Review';
+  }
+
+  if (value === 'in_progress') {
+    return 'In Progress';
   }
 
   return status;
@@ -76,18 +86,37 @@ export default function AdminDashboard() {
   const { state } = useApp();
   const analytics = useAnalytics();
 
-  /* -------------------------------------------------------
+
+  /* =======================================================
      LIVE SUPABASE ISSUES
-  ------------------------------------------------------- */
+  ======================================================= */
 
   const [supabaseIssues, setSupabaseIssues] = useState([]);
-  const [issuesLoading, setIssuesLoading] = useState(true);
-  const [issuesError, setIssuesError] = useState(null);
+
+  const [issuesLoading, setIssuesLoading] =
+    useState(true);
+
+  const [issuesError, setIssuesError] =
+    useState(null);
 
 
-  /* -------------------------------------------------------
+  /* =======================================================
+     LIVE SUPABASE INSPECTIONS
+  ======================================================= */
+
+  const [supabaseInspections, setSupabaseInspections] =
+    useState([]);
+
+  const [inspectionsLoading, setInspectionsLoading] =
+    useState(true);
+
+  const [inspectionsError, setInspectionsError] =
+    useState(null);
+
+
+  /* =======================================================
      FETCH CITIZEN ISSUES
-  ------------------------------------------------------- */
+  ======================================================= */
 
   const fetchIssues = async () => {
 
@@ -142,33 +171,101 @@ export default function AdminDashboard() {
   }, []);
 
 
+  /* =======================================================
+     FETCH FIELD INSPECTIONS
+  ======================================================= */
+
+  const fetchInspections = async () => {
+
+    setInspectionsLoading(true);
+    setInspectionsError(null);
+
+    try {
+
+      const {
+        data,
+        error,
+      } = await supabase
+        .from('inspections')
+        .select('*')
+        .order('inspected_at', {
+          ascending: false,
+        });
+
+      if (error) {
+
+        console.error(
+          'Admin Dashboard Supabase Inspections Error:',
+          error
+        );
+
+        setInspectionsError(error.message);
+        setSupabaseInspections([]);
+
+        return;
+      }
+
+      setSupabaseInspections(data || []);
+
+    } catch (err) {
+
+      console.error(
+        'Unexpected Inspection Dashboard Error:',
+        err
+      );
+
+      setInspectionsError(
+        'Unable to load field inspections.'
+      );
+
+      setSupabaseInspections([]);
+
+    } finally {
+
+      setInspectionsLoading(false);
+    }
+  };
+
+
+  useEffect(() => {
+    fetchInspections();
+  }, []);
+
+
   /* =========================================================
      LIVE ISSUE ANALYTICS
   ========================================================= */
 
-  const totalIssues = supabaseIssues.length;
+  const totalIssues =
+    supabaseIssues.length;
 
-  const resolvedIssues = supabaseIssues.filter(
-    (issue) =>
-      RESOLVED_STATUSES.includes(
-        normalizeStatus(issue.status)
-      )
-  ).length;
+
+  const resolvedIssues =
+    supabaseIssues.filter(
+      (issue) =>
+        RESOLVED_STATUSES.includes(
+          normalizeStatus(issue.status)
+        )
+    ).length;
+
 
   const unresolvedIssues =
     totalIssues - resolvedIssues;
 
+
   const resolutionRate =
     totalIssues > 0
       ? Math.round(
-          (resolvedIssues / totalIssues) * 100
+          (resolvedIssues /
+            totalIssues) *
+            100
         )
       : 0;
 
 
-  /* -------------------------------------------------------
+  /* =========================================================
      ISSUE STATUS DATA
-  ------------------------------------------------------- */
+  ========================================================= */
 
   const issueStatusData = [
     {
@@ -184,41 +281,45 @@ export default function AdminDashboard() {
   ];
 
 
-  /* -------------------------------------------------------
+  /* =========================================================
      RECENT REPORTED ISSUES
-  ------------------------------------------------------- */
+  ========================================================= */
 
-  const recentIssues = supabaseIssues
-    .filter(
-      (issue) =>
-        normalizeStatus(issue.status) ===
-        'Reported'
-    )
-    .slice(0, 4);
+  const recentIssues =
+    supabaseIssues
+      .filter(
+        (issue) =>
+          normalizeStatus(
+            issue.status
+          ) === 'Reported'
+      )
+      .slice(0, 4);
 
 
   /* =========================================================
      EXISTING PROJECT / INFRASTRUCTURE ANALYTICS
   ========================================================= */
 
-  const priorities = computeAllWardPriorities(
-    state.infrastructure,
-    state.issues,
+  const priorities =
+    computeAllWardPriorities(
+      state.infrastructure,
+      state.issues,
+      state.projects
+    );
+
+
+  const recentDelayed =
     state.projects
-  );
+      .filter(
+        (project) =>
+          project.status === 'Delayed'
+      )
+      .slice(0, 3);
 
 
-  const recentDelayed = state.projects
-    .filter(
-      (project) =>
-        project.status === 'Delayed'
-    )
-    .slice(0, 3);
-
-
-  /* -------------------------------------------------------
+  /* =========================================================
      PROJECT CHART DATA
-  ------------------------------------------------------- */
+  ========================================================= */
 
   const projectStatusData =
     Object.entries(
@@ -231,24 +332,62 @@ export default function AdminDashboard() {
     );
 
 
-  /* -------------------------------------------------------
-     INFRASTRUCTURE CHART DATA
-  ------------------------------------------------------- */
+  /* =========================================================
+     LIVE INSPECTION CHART DATA
+  ========================================================= */
 
-  const infraCondData =
-    Object.entries(
-      analytics.infrastructure.conditionDist
-    ).map(
-      ([name, value]) => ({
-        name,
-        value,
-      })
-    );
+  const infraCondData = [
+    {
+      name: 'Excellent / Good',
+      value:
+        supabaseInspections.filter(
+          (inspection) =>
+            ['Excellent', 'Good'].includes(
+              inspection.condition_level
+            )
+        ).length,
+    },
+
+    {
+      name: 'Moderate',
+      value:
+        supabaseInspections.filter(
+          (inspection) =>
+            inspection.condition_level ===
+            'Moderate'
+        ).length,
+    },
+
+    {
+      name: 'Poor / Critical',
+      value:
+        supabaseInspections.filter(
+          (inspection) =>
+            ['Poor', 'Critical'].includes(
+              inspection.condition_level
+            )
+        ).length,
+    },
+  ];
 
 
-  /* -------------------------------------------------------
+  /* =========================================================
+     INSPECTION SUMMARY
+  ========================================================= */
+
+  const totalInspections =
+    supabaseInspections.length;
+
+
+  const latestInspection =
+    supabaseInspections.length > 0
+      ? supabaseInspections[0]
+      : null;
+
+
+  /* =========================================================
      PROJECT STATUS COLORS
-  ------------------------------------------------------- */
+  ========================================================= */
 
   const STATUS_COLORS = {
     Planned: '#94a3b8',
@@ -266,6 +405,7 @@ export default function AdminDashboard() {
   return (
 
     <div className="flex flex-col h-full overflow-hidden">
+
 
       {/* =====================================================
           HEADER
@@ -297,6 +437,7 @@ export default function AdminDashboard() {
 
           <div className="flex flex-wrap gap-3">
 
+
             {/* DELAYED PROJECTS */}
 
             {analytics.projects.delayedCount > 0 && (
@@ -316,10 +457,13 @@ export default function AdminDashboard() {
                 <AlertTriangle size={15} />
 
                 <span>
+
                   <strong>
                     {analytics.projects.delayedCount}
                   </strong>{' '}
+
                   project(s) are delayed
+
                 </span>
 
                 <Link
@@ -330,6 +474,7 @@ export default function AdminDashboard() {
                 </Link>
 
               </div>
+
             )}
 
 
@@ -352,11 +497,14 @@ export default function AdminDashboard() {
                 <AlertTriangle size={15} />
 
                 <span>
+
                   <strong>
                     {analytics.infrastructure.criticalCount}
                   </strong>{' '}
+
                   infrastructure item(s) in
                   poor/critical condition
+
                 </span>
 
                 <Link
@@ -367,6 +515,7 @@ export default function AdminDashboard() {
                 </Link>
 
               </div>
+
             )}
 
 
@@ -389,10 +538,13 @@ export default function AdminDashboard() {
                 <MessageSquare size={15} />
 
                 <span>
+
                   <strong>
                     {unresolvedIssues}
                   </strong>{' '}
+
                   citizen issue(s) unresolved
+
                 </span>
 
                 <Link
@@ -403,9 +555,11 @@ export default function AdminDashboard() {
                 </Link>
 
               </div>
+
             )}
 
           </div>
+
         )}
 
 
@@ -444,7 +598,7 @@ export default function AdminDashboard() {
           />
 
 
-          {/* LIVE CITIZEN COMPLAINTS */}
+          {/* CITIZEN COMPLAINTS */}
 
           <StatCard
             title="Citizen Complaints"
@@ -468,9 +622,11 @@ export default function AdminDashboard() {
 
           <StatCard
             title="Total Project Budget"
-            value={formatCurrency(
-              analytics.projects.totalBudget
-            )}
+            value={
+              formatCurrency(
+                analytics.projects.totalBudget
+              )
+            }
             subtitle={`Utilised: ${formatCurrency(
               analytics.projects.totalSpent
             )}`}
@@ -478,6 +634,120 @@ export default function AdminDashboard() {
             iconBg="bg-green-100 dark:bg-green-900/30"
             iconColor="text-green-600 dark:text-green-400"
           />
+
+        </div>
+
+
+        {/* ===================================================
+            FIELD INSPECTION SUMMARY
+        =================================================== */}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+
+          {/* TOTAL INSPECTIONS */}
+
+          <StatCard
+            title="Field Inspections"
+            value={
+              inspectionsLoading
+                ? '...'
+                : totalInspections
+            }
+            subtitle={
+              inspectionsLoading
+                ? 'Loading inspections...'
+                : 'Recorded in Supabase'
+            }
+            icon={Package}
+            iconBg="bg-purple-100 dark:bg-purple-900/30"
+            iconColor="text-purple-600 dark:text-purple-400"
+          />
+
+
+          {/* LATEST INSPECTION */}
+
+          <div
+            className="
+              bg-white dark:bg-slate-800
+              rounded-xl
+              border border-slate-200 dark:border-slate-700
+              p-5
+            "
+          >
+
+            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Latest Inspection
+            </div>
+
+            {inspectionsLoading ? (
+
+              <div className="mt-2 text-sm text-slate-400">
+                Loading...
+              </div>
+
+            ) : latestInspection ? (
+
+              <>
+
+                <div className="mt-2 text-sm font-bold text-slate-800 dark:text-slate-200">
+                  {latestInspection.asset_id}
+                </div>
+
+                <div className="text-xs text-slate-500 mt-1">
+                  {latestInspection.inspector_name || 'Unknown inspector'}
+                </div>
+
+                <div className="text-xs text-slate-500 mt-1">
+                  {latestInspection.condition_level || '—'}
+                  {latestInspection.condition_score != null
+                    ? ` · ${latestInspection.condition_score}/10`
+                    : ''}
+                </div>
+
+              </>
+
+            ) : (
+
+              <div className="mt-2 text-sm text-slate-400">
+                No inspections recorded yet.
+              </div>
+
+            )}
+
+          </div>
+
+
+          {/* INSPECTION STATUS */}
+
+          <div
+            className="
+              bg-white dark:bg-slate-800
+              rounded-xl
+              border border-slate-200 dark:border-slate-700
+              p-5
+            "
+          >
+
+            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Inspection Data
+            </div>
+
+            <div className="mt-2 text-sm font-bold text-green-600 dark:text-green-400">
+              {inspectionsLoading
+                ? 'Loading...'
+                : inspectionsError
+                ? 'Unavailable'
+                : 'Live'}
+            </div>
+
+            <div className="text-xs text-slate-500 mt-1">
+              {inspectionsError
+                ? inspectionsError
+                : 'Synced with Supabase'}
+            </div>
+
+          </div>
 
         </div>
 
@@ -557,7 +827,7 @@ export default function AdminDashboard() {
           </div>
 
 
-          {/* LIVE ISSUE RESOLUTION */}
+          {/* COMPLAINT RESOLUTION */}
 
           <div
             className="
@@ -692,60 +962,115 @@ export default function AdminDashboard() {
             "
           >
 
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
-              Infrastructure Condition
-            </h3>
+            <div className="flex items-center justify-between mb-4">
 
-            <ResponsiveContainer
-              width="100%"
-              height={160}
-            >
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                Infrastructure Condition
+              </h3>
 
-              <BarChart
-                data={infraCondData}
-                margin={{
-                  left: -20,
-                  right: 5,
-                  top: 5,
-                  bottom: 5,
-                }}
+              <button
+                onClick={fetchInspections}
+                disabled={inspectionsLoading}
+                className="
+                  p-1.5
+                  rounded-md
+                  hover:bg-slate-100
+                  dark:hover:bg-slate-700
+                  text-slate-500
+                "
+                title="Refresh inspections"
               >
 
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#e2e8f0"
+                <RefreshCw
+                  size={14}
+                  className={
+                    inspectionsLoading
+                      ? 'animate-spin'
+                      : ''
+                  }
                 />
 
-                <XAxis
-                  dataKey="name"
-                  tick={{
-                    fontSize: 9,
+              </button>
+
+            </div>
+
+
+            {inspectionsError ? (
+
+              <div className="h-[160px] flex flex-col items-center justify-center text-center">
+
+                <AlertTriangle
+                  size={24}
+                  className="text-amber-400 mb-2"
+                />
+
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  {inspectionsError}
+                </p>
+
+              </div>
+
+            ) : inspectionsLoading ? (
+
+              <div className="h-[160px] flex items-center justify-center text-sm text-slate-400">
+                Loading inspection data...
+              </div>
+
+            ) : (
+
+              <ResponsiveContainer
+                width="100%"
+                height={160}
+              >
+
+                <BarChart
+                  data={infraCondData}
+                  margin={{
+                    left: -20,
+                    right: 5,
+                    top: 5,
+                    bottom: 5,
                   }}
-                />
+                >
 
-                <YAxis
-                  tick={{
-                    fontSize: 10,
-                  }}
-                />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#e2e8f0"
+                  />
 
-                <Tooltip />
+                  <XAxis
+                    dataKey="name"
+                    tick={{
+                      fontSize: 9,
+                    }}
+                  />
 
-                <Bar
-                  dataKey="value"
-                  name="Count"
-                  fill="#3b82f6"
-                  radius={[
-                    3,
-                    3,
-                    0,
-                    0,
-                  ]}
-                />
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{
+                      fontSize: 10,
+                    }}
+                  />
 
-              </BarChart>
+                  <Tooltip />
 
-            </ResponsiveContainer>
+                  <Bar
+                    dataKey="value"
+                    name="Inspections"
+                    fill="#3b82f6"
+                    radius={[
+                      3,
+                      3,
+                      0,
+                      0,
+                    ]}
+                  />
+
+                </BarChart>
+
+              </ResponsiveContainer>
+
+            )}
 
           </div>
 
@@ -856,6 +1181,7 @@ export default function AdminDashboard() {
                     </div>
 
                   );
+
                 })}
 
             </div>
@@ -1189,6 +1515,7 @@ export default function AdminDashboard() {
                     </div>
 
                   );
+
                 })}
 
               </div>
@@ -1201,5 +1528,6 @@ export default function AdminDashboard() {
       </div>
 
     </div>
+
   );
 }
