@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+
 import {
   Package,
   FolderOpen,
@@ -9,6 +10,8 @@ import {
   IndianRupee,
   ArrowRight,
   RefreshCw,
+  Brain,
+  ShieldAlert,
 } from 'lucide-react';
 
 import { useApp, useAnalytics } from '../../context/AppContext.jsx';
@@ -30,6 +33,11 @@ import {
   computeAllWardPriorities,
   TIER_STYLES,
 } from '../../utils/priorityScore.js';
+
+import {
+  computeIssuePriorities,
+  ISSUE_PRIORITY_STYLES,
+} from '../../utils/issuePriority.js';
 
 import {
   BarChart,
@@ -56,10 +64,15 @@ const RESOLVED_STATUSES = [
   'Closed',
 ];
 
-const normalizeStatus = (status) => {
-  if (!status) return 'Reported';
 
-  const value = String(status).toLowerCase();
+const normalizeStatus = (status) => {
+
+  if (!status) {
+    return 'Reported';
+  }
+
+  const value =
+    String(status).toLowerCase();
 
   if (value === 'pending') {
     return 'Reported';
@@ -78,45 +91,74 @@ const normalizeStatus = (status) => {
 
 
 /* =========================================================
+   AI PRIORITY STYLE HELPER
+========================================================= */
+
+const getPriorityStyle = (tier) => {
+
+  return (
+    ISSUE_PRIORITY_STYLES[tier] ||
+    ISSUE_PRIORITY_STYLES.LOW
+  );
+
+};
+
+
+/* =========================================================
    COMPONENT
 ========================================================= */
 
 export default function AdminDashboard() {
 
   const { state } = useApp();
-  const analytics = useAnalytics();
+
+  const analytics =
+    useAnalytics();
 
 
   /* =======================================================
      LIVE SUPABASE ISSUES
   ======================================================= */
 
-  const [supabaseIssues, setSupabaseIssues] = useState([]);
+  const [
+    supabaseIssues,
+    setSupabaseIssues,
+  ] = useState([]);
 
-  const [issuesLoading, setIssuesLoading] =
-    useState(true);
+  const [
+    issuesLoading,
+    setIssuesLoading,
+  ] = useState(true);
 
-  const [issuesError, setIssuesError] =
-    useState(null);
+  const [
+    issuesError,
+    setIssuesError,
+  ] = useState(null);
 
 
   /* =======================================================
      LIVE SUPABASE INSPECTIONS
   ======================================================= */
 
-  const [supabaseInspections, setSupabaseInspections] =
-    useState([]);
+  const [
+    supabaseInspections,
+    setSupabaseInspections,
+  ] = useState([]);
 
-  const [inspectionsLoading, setInspectionsLoading] =
-    useState(true);
+  const [
+    inspectionsLoading,
+    setInspectionsLoading,
+  ] = useState(true);
 
-  const [inspectionsError, setInspectionsError] =
-    useState(null);
+  const [
+    inspectionsError,
+    setInspectionsError,
+  ] = useState(null);
 
 
-  /* =======================================================
+  /* =========================================================
      FETCH CITIZEN ISSUES
-  ======================================================= */
+  ========================================================= */
 
   const fetchIssues = async () => {
 
@@ -135,6 +177,7 @@ export default function AdminDashboard() {
           ascending: false,
         });
 
+
       if (error) {
 
         console.error(
@@ -142,11 +185,17 @@ export default function AdminDashboard() {
           error
         );
 
-        setIssuesError(error.message);
+        setIssuesError(
+          error.message
+        );
+
         return;
       }
 
-      setSupabaseIssues(data || []);
+
+      setSupabaseIssues(
+        data || []
+      );
 
     } catch (err) {
 
@@ -162,18 +211,22 @@ export default function AdminDashboard() {
     } finally {
 
       setIssuesLoading(false);
+
     }
+
   };
 
 
   useEffect(() => {
+
     fetchIssues();
+
   }, []);
 
 
-  /* =======================================================
+  /* =========================================================
      FETCH FIELD INSPECTIONS
-  ======================================================= */
+  ========================================================= */
 
   const fetchInspections = async () => {
 
@@ -192,6 +245,7 @@ export default function AdminDashboard() {
           ascending: false,
         });
 
+
       if (error) {
 
         console.error(
@@ -199,13 +253,19 @@ export default function AdminDashboard() {
           error
         );
 
-        setInspectionsError(error.message);
+        setInspectionsError(
+          error.message
+        );
+
         setSupabaseInspections([]);
 
         return;
       }
 
-      setSupabaseInspections(data || []);
+
+      setSupabaseInspections(
+        data || []
+      );
 
     } catch (err) {
 
@@ -223,12 +283,16 @@ export default function AdminDashboard() {
     } finally {
 
       setInspectionsLoading(false);
+
     }
+
   };
 
 
   useEffect(() => {
+
     fetchInspections();
+
   }, []);
 
 
@@ -244,23 +308,75 @@ export default function AdminDashboard() {
     supabaseIssues.filter(
       (issue) =>
         RESOLVED_STATUSES.includes(
-          normalizeStatus(issue.status)
+          normalizeStatus(
+            issue.status
+          )
         )
     ).length;
 
 
   const unresolvedIssues =
-    totalIssues - resolvedIssues;
+    totalIssues -
+    resolvedIssues;
 
 
   const resolutionRate =
     totalIssues > 0
       ? Math.round(
-          (resolvedIssues /
-            totalIssues) *
+          (
+            resolvedIssues /
+            totalIssues
+          ) *
             100
         )
       : 0;
+
+
+  /* =========================================================
+     AI ISSUE PRIORITY
+  ========================================================= */
+
+  const prioritizedIssues =
+    computeIssuePriorities(
+      supabaseIssues
+    );
+
+
+  const topPriorityIssues =
+    prioritizedIssues
+      .filter(
+        ({ issue }) =>
+          !RESOLVED_STATUSES.includes(
+            normalizeStatus(
+              issue.status
+            )
+          )
+      )
+      .slice(0, 5);
+
+
+  const criticalPriorityCount =
+    prioritizedIssues.filter(
+      ({ issue, priority }) =>
+        !RESOLVED_STATUSES.includes(
+          normalizeStatus(
+            issue.status
+          )
+        ) &&
+        priority.tier === 'CRITICAL'
+    ).length;
+
+
+  const highPriorityCount =
+    prioritizedIssues.filter(
+      ({ issue, priority }) =>
+        !RESOLVED_STATUSES.includes(
+          normalizeStatus(
+            issue.status
+          )
+        ) &&
+        priority.tier === 'HIGH'
+    ).length;
 
 
   /* =========================================================
@@ -273,6 +389,7 @@ export default function AdminDashboard() {
       value: unresolvedIssues,
       color: '#ef4444',
     },
+
     {
       name: 'Resolved/Closed',
       value: resolvedIssues,
@@ -342,7 +459,10 @@ export default function AdminDashboard() {
       value:
         supabaseInspections.filter(
           (inspection) =>
-            ['Excellent', 'Good'].includes(
+            [
+              'Excellent',
+              'Good',
+            ].includes(
               inspection.condition_level
             )
         ).length,
@@ -363,7 +483,10 @@ export default function AdminDashboard() {
       value:
         supabaseInspections.filter(
           (inspection) =>
-            ['Poor', 'Critical'].includes(
+            [
+              'Poor',
+              'Critical',
+            ].includes(
               inspection.condition_level
             )
         ).length,
@@ -390,11 +513,22 @@ export default function AdminDashboard() {
   ========================================================= */
 
   const STATUS_COLORS = {
-    Planned: '#94a3b8',
-    Approved: '#3b82f6',
-    'In Progress': '#f59e0b',
-    Delayed: '#ef4444',
-    Completed: '#22c55e',
+
+    Planned:
+      '#94a3b8',
+
+    Approved:
+      '#3b82f6',
+
+    'In Progress':
+      '#f59e0b',
+
+    Delayed:
+      '#ef4444',
+
+    Completed:
+      '#22c55e',
+
   };
 
 
@@ -432,10 +566,53 @@ export default function AdminDashboard() {
         {(
           analytics.projects.delayedCount > 0 ||
           analytics.infrastructure.criticalCount > 0 ||
-          unresolvedIssues > 0
+          unresolvedIssues > 0 ||
+          criticalPriorityCount > 0
         ) && (
 
           <div className="flex flex-wrap gap-3">
+
+
+            {/* AI CRITICAL ALERT */}
+
+            {criticalPriorityCount > 0 && (
+
+              <div
+                className="
+                  flex items-center gap-2
+                  px-4 py-2.5
+                  bg-red-50 dark:bg-red-900/20
+                  border border-red-200 dark:border-red-800
+                  rounded-lg
+                  text-sm
+                  text-red-700 dark:text-red-300
+                "
+              >
+
+                <ShieldAlert
+                  size={15}
+                />
+
+                <span>
+
+                  <strong>
+                    {criticalPriorityCount}
+                  </strong>{' '}
+
+                  AI-critical citizen issue(s)
+
+                </span>
+
+                <Link
+                  to="/admin/issues"
+                  className="ml-1 underline text-xs"
+                >
+                  Review →
+                </Link>
+
+              </div>
+
+            )}
 
 
             {/* DELAYED PROJECTS */}
@@ -454,7 +631,9 @@ export default function AdminDashboard() {
                 "
               >
 
-                <AlertTriangle size={15} />
+                <AlertTriangle
+                  size={15}
+                />
 
                 <span>
 
@@ -494,7 +673,9 @@ export default function AdminDashboard() {
                 "
               >
 
-                <AlertTriangle size={15} />
+                <AlertTriangle
+                  size={15}
+                />
 
                 <span>
 
@@ -535,7 +716,9 @@ export default function AdminDashboard() {
                 "
               >
 
-                <MessageSquare size={15} />
+                <MessageSquare
+                  size={15}
+                />
 
                 <span>
 
@@ -639,10 +822,481 @@ export default function AdminDashboard() {
 
 
         {/* ===================================================
+            AI PRIORITY ALERTS
+        =================================================== */}
+
+        <div
+          className="
+            bg-white dark:bg-slate-800
+            rounded-xl
+            border border-slate-200 dark:border-slate-700
+            overflow-hidden
+          "
+        >
+
+          <div
+            className="
+              flex items-center justify-between
+              px-5 py-4
+              border-b border-slate-100
+              dark:border-slate-700
+            "
+          >
+
+            <div className="flex items-center gap-3">
+
+              <div
+                className="
+                  w-9 h-9
+                  rounded-lg
+                  bg-blue-100 dark:bg-blue-900/30
+                  flex items-center justify-center
+                "
+              >
+
+                <Brain
+                  size={18}
+                  className="
+                    text-blue-600
+                    dark:text-blue-400
+                  "
+                />
+
+              </div>
+
+
+              <div>
+
+                <h3
+                  className="
+                    font-semibold
+                    text-slate-800
+                    dark:text-slate-200
+                  "
+                >
+                  AI Priority Alerts
+                </h3>
+
+                <p
+                  className="
+                    text-[11px]
+                    text-slate-500
+                    dark:text-slate-400
+                  "
+                >
+                  Issues requiring the earliest administrative attention
+                </p>
+
+              </div>
+
+            </div>
+
+
+            <div className="flex items-center gap-3">
+
+              {!issuesLoading && (
+
+                <div
+                  className="
+                    hidden sm:flex
+                    items-center gap-2
+                    text-[11px]
+                    text-slate-500
+                  "
+                >
+
+                  <span>
+                    {criticalPriorityCount} Critical
+                  </span>
+
+                  <span>
+                    ·
+                  </span>
+
+                  <span>
+                    {highPriorityCount} High
+                  </span>
+
+                </div>
+
+              )}
+
+
+              <Link
+                to="/admin/issues"
+                className="
+                  text-xs
+                  text-blue-600
+                  dark:text-blue-400
+                  flex items-center gap-1
+                  hover:underline
+                "
+              >
+
+                View all
+
+                <ArrowRight size={12} />
+
+              </Link>
+
+            </div>
+
+          </div>
+
+
+          {/* AI LOADING */}
+
+          {issuesLoading && (
+
+            <div
+              className="
+                px-5 py-8
+                flex items-center
+                justify-center
+                text-sm
+                text-slate-400
+              "
+            >
+
+              <RefreshCw
+                size={16}
+                className="animate-spin mr-2"
+              />
+
+              Analysing citizen issues...
+
+            </div>
+
+          )}
+
+
+          {/* AI ERROR */}
+
+          {!issuesLoading &&
+            issuesError && (
+
+              <div
+                className="
+                  px-5 py-8
+                  text-center
+                "
+              >
+
+                <AlertTriangle
+                  size={22}
+                  className="
+                    mx-auto mb-2
+                    text-red-400
+                  "
+                />
+
+                <p
+                  className="
+                    text-xs
+                    text-red-500
+                  "
+                >
+                  {issuesError}
+                </p>
+
+              </div>
+
+            )}
+
+
+          {/* AI EMPTY */}
+
+          {!issuesLoading &&
+            !issuesError &&
+            topPriorityIssues.length === 0 && (
+
+              <div
+                className="
+                  px-5 py-8
+                  text-center
+                  text-sm
+                  text-slate-400
+                "
+              >
+
+                No unresolved citizen issues requiring attention 🎉
+
+              </div>
+
+            )}
+
+
+          {/* AI PRIORITY LIST */}
+
+          {!issuesLoading &&
+            !issuesError &&
+            topPriorityIssues.length > 0 && (
+
+              <div
+                className="
+                  divide-y
+                  divide-slate-100
+                  dark:divide-slate-700
+                "
+              >
+
+                {topPriorityIssues.map(
+                  ({
+                    issue,
+                    priority,
+                  }) => {
+
+                    const priorityStyle =
+                      getPriorityStyle(
+                        priority.tier
+                      );
+
+
+                    return (
+
+                      <div
+                        key={issue.id}
+                        className="
+                          px-5 py-4
+                          hover:bg-slate-50
+                          dark:hover:bg-slate-800/60
+                          transition-colors
+                        "
+                      >
+
+                        <div
+                          className="
+                            flex
+                            items-start
+                            gap-3
+                          "
+                        >
+
+                          {/* SCORE */}
+
+                          <div
+                            className="
+                              flex-shrink-0
+                              w-12
+                              h-12
+                              rounded-xl
+                              bg-slate-100
+                              dark:bg-slate-700
+                              flex flex-col
+                              items-center
+                              justify-center
+                            "
+                          >
+
+                            <span
+                              className="
+                                text-lg
+                                font-bold
+                                text-slate-800
+                                dark:text-white
+                              "
+                            >
+                              {priority.score}
+                            </span>
+
+                            <span
+                              className="
+                                text-[8px]
+                                uppercase
+                                tracking-wider
+                                text-slate-400
+                              "
+                            >
+                              score
+                            </span>
+
+                          </div>
+
+
+                          {/* ISSUE INFO */}
+
+                          <div
+                            className="
+                              flex-1
+                              min-w-0
+                            "
+                          >
+
+                            <div
+                              className="
+                                flex
+                                items-center
+                                gap-2
+                                flex-wrap
+                              "
+                            >
+
+                              <span
+                                className="
+                                  text-xs
+                                  font-mono
+                                  text-slate-400
+                                "
+                              >
+                                {issue.id}
+                              </span>
+
+
+                              <span
+                                className="
+                                  text-sm
+                                  font-semibold
+                                  text-slate-800
+                                  dark:text-slate-200
+                                "
+                              >
+                                {issue.category ||
+                                  'Citizen Issue'}
+                              </span>
+
+
+                              <span
+                                className={`
+                                  text-[10px]
+                                  font-bold
+                                  uppercase
+                                  px-2 py-0.5
+                                  rounded-full
+                                  ${priorityStyle.className}
+                                `}
+                              >
+                                {priorityStyle.label}
+                              </span>
+
+                            </div>
+
+
+                            <div
+                              className="
+                                mt-1
+                                flex
+                                items-center
+                                gap-2
+                                text-xs
+                                text-slate-500
+                              "
+                            >
+
+                              <MapPin
+                                size={11}
+                              />
+
+                              <span>
+                                {issue.location ||
+                                  'Location unavailable'}
+                              </span>
+
+                              <span>
+                                ·
+                              </span>
+
+                              <span>
+                                {normalizeStatus(
+                                  issue.status
+                                )}
+                              </span>
+
+                            </div>
+
+
+                            <p
+                              className="
+                                mt-1.5
+                                text-xs
+                                text-slate-600
+                                dark:text-slate-400
+                                line-clamp-1
+                              "
+                            >
+                              {issue.description ||
+                                'No description available'}
+                            </p>
+
+
+                            {/* TOP REASON */}
+
+                            {priority.reasons?.[0] && (
+
+                              <div
+                                className="
+                                  mt-2
+                                  flex
+                                  items-center
+                                  gap-1.5
+                                  text-[10px]
+                                  text-slate-500
+                                  dark:text-slate-400
+                                "
+                              >
+
+                                <Brain
+                                  size={11}
+                                  className="
+                                    text-blue-500
+                                  "
+                                />
+
+                                <span>
+                                  {priority.reasons[0]}
+                                </span>
+
+                              </div>
+
+                            )}
+
+                          </div>
+
+
+                          {/* VIEW */}
+
+                          <Link
+                            to="/admin/issues"
+                            className="
+                              flex-shrink-0
+                              text-xs
+                              font-semibold
+                              text-blue-600
+                              dark:text-blue-400
+                              hover:underline
+                              pt-1
+                            "
+                          >
+                            View →
+                          </Link>
+
+                        </div>
+
+                      </div>
+
+                    );
+
+                  }
+                )}
+
+              </div>
+
+            )}
+
+        </div>
+
+
+        {/* ===================================================
             FIELD INSPECTION SUMMARY
         =================================================== */}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div
+          className="
+            grid
+            grid-cols-1
+            md:grid-cols-3
+            gap-4
+          "
+        >
 
 
           {/* TOTAL INSPECTIONS */}
@@ -676,13 +1330,27 @@ export default function AdminDashboard() {
             "
           >
 
-            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <div
+              className="
+                text-xs
+                font-medium
+                text-slate-500
+                dark:text-slate-400
+              "
+            >
               Latest Inspection
             </div>
 
+
             {inspectionsLoading ? (
 
-              <div className="mt-2 text-sm text-slate-400">
+              <div
+                className="
+                  mt-2
+                  text-sm
+                  text-slate-400
+                "
+              >
                 Loading...
               </div>
 
@@ -690,26 +1358,60 @@ export default function AdminDashboard() {
 
               <>
 
-                <div className="mt-2 text-sm font-bold text-slate-800 dark:text-slate-200">
+                <div
+                  className="
+                    mt-2
+                    text-sm
+                    font-bold
+                    text-slate-800
+                    dark:text-slate-200
+                  "
+                >
                   {latestInspection.asset_id}
                 </div>
 
-                <div className="text-xs text-slate-500 mt-1">
-                  {latestInspection.inspector_name || 'Unknown inspector'}
+
+                <div
+                  className="
+                    text-xs
+                    text-slate-500
+                    mt-1
+                  "
+                >
+                  {latestInspection.inspector_name ||
+                    'Unknown inspector'}
                 </div>
 
-                <div className="text-xs text-slate-500 mt-1">
-                  {latestInspection.condition_level || '—'}
-                  {latestInspection.condition_score != null
+
+                <div
+                  className="
+                    text-xs
+                    text-slate-500
+                    mt-1
+                  "
+                >
+
+                  {latestInspection.condition_level ||
+                    '—'}
+
+                  {latestInspection.condition_score !=
+                    null
                     ? ` · ${latestInspection.condition_score}/10`
                     : ''}
+
                 </div>
 
               </>
 
             ) : (
 
-              <div className="mt-2 text-sm text-slate-400">
+              <div
+                className="
+                  mt-2
+                  text-sm
+                  text-slate-400
+                "
+              >
                 No inspections recorded yet.
               </div>
 
@@ -729,22 +1431,49 @@ export default function AdminDashboard() {
             "
           >
 
-            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            <div
+              className="
+                text-xs
+                font-medium
+                text-slate-500
+                dark:text-slate-400
+              "
+            >
               Inspection Data
             </div>
 
-            <div className="mt-2 text-sm font-bold text-green-600 dark:text-green-400">
+
+            <div
+              className="
+                mt-2
+                text-sm
+                font-bold
+                text-green-600
+                dark:text-green-400
+              "
+            >
+
               {inspectionsLoading
                 ? 'Loading...'
                 : inspectionsError
                 ? 'Unavailable'
                 : 'Live'}
+
             </div>
 
-            <div className="text-xs text-slate-500 mt-1">
+
+            <div
+              className="
+                text-xs
+                text-slate-500
+                mt-1
+              "
+            >
+
               {inspectionsError
                 ? inspectionsError
                 : 'Synced with Supabase'}
+
             </div>
 
           </div>
@@ -770,9 +1499,18 @@ export default function AdminDashboard() {
             "
           >
 
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
+            <h3
+              className="
+                text-sm
+                font-semibold
+                text-slate-700
+                dark:text-slate-300
+                mb-4
+              "
+            >
               Projects by Status
             </h3>
+
 
             <ResponsiveContainer
               width="100%"
@@ -801,7 +1539,8 @@ export default function AdminDashboard() {
                         fill={
                           STATUS_COLORS[
                             entry.name
-                          ] || '#94a3b8'
+                          ] ||
+                          '#94a3b8'
                         }
                       />
 
@@ -810,7 +1549,9 @@ export default function AdminDashboard() {
 
                 </Pie>
 
+
                 <Tooltip />
+
 
                 <Legend
                   iconType="circle"
@@ -838,11 +1579,26 @@ export default function AdminDashboard() {
             "
           >
 
-            <div className="flex items-center justify-between mb-4">
+            <div
+              className="
+                flex
+                items-center
+                justify-between
+                mb-4
+              "
+            >
 
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <h3
+                className="
+                  text-sm
+                  font-semibold
+                  text-slate-700
+                  dark:text-slate-300
+                "
+              >
                 Complaint Resolution
               </h3>
+
 
               <button
                 onClick={fetchIssues}
@@ -873,14 +1629,27 @@ export default function AdminDashboard() {
 
             {issuesError ? (
 
-              <div className="h-[160px] flex flex-col items-center justify-center text-center">
+              <div
+                className="
+                  h-[160px]
+                  flex flex-col
+                  items-center
+                  justify-center
+                  text-center
+                "
+              >
 
                 <AlertTriangle
                   size={24}
                   className="text-red-400 mb-2"
                 />
 
-                <p className="text-xs text-red-500">
+                <p
+                  className="
+                    text-xs
+                    text-red-500
+                  "
+                >
                   {issuesError}
                 </p>
 
@@ -917,7 +1686,9 @@ export default function AdminDashboard() {
 
                   </Pie>
 
+
                   <Tooltip />
+
 
                   <Legend
                     iconType="circle"
@@ -934,15 +1705,36 @@ export default function AdminDashboard() {
             )}
 
 
-            <div className="text-center mt-1">
+            <div
+              className="
+                text-center
+                mt-1
+              "
+            >
 
-              <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <span
+                className="
+                  text-2xl
+                  font-bold
+                  text-green-600
+                  dark:text-green-400
+                "
+              >
+
                 {issuesLoading
                   ? '--'
                   : `${resolutionRate}%`}
+
               </span>
 
-              <span className="text-xs text-slate-500 ml-1">
+
+              <span
+                className="
+                  text-xs
+                  text-slate-500
+                  ml-1
+                "
+              >
                 resolved
               </span>
 
@@ -962,11 +1754,26 @@ export default function AdminDashboard() {
             "
           >
 
-            <div className="flex items-center justify-between mb-4">
+            <div
+              className="
+                flex
+                items-center
+                justify-between
+                mb-4
+              "
+            >
 
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <h3
+                className="
+                  text-sm
+                  font-semibold
+                  text-slate-700
+                  dark:text-slate-300
+                "
+              >
                 Infrastructure Condition
               </h3>
+
 
               <button
                 onClick={fetchInspections}
@@ -997,14 +1804,28 @@ export default function AdminDashboard() {
 
             {inspectionsError ? (
 
-              <div className="h-[160px] flex flex-col items-center justify-center text-center">
+              <div
+                className="
+                  h-[160px]
+                  flex flex-col
+                  items-center
+                  justify-center
+                  text-center
+                "
+              >
 
                 <AlertTriangle
                   size={24}
                   className="text-amber-400 mb-2"
                 />
 
-                <p className="text-xs text-amber-600 dark:text-amber-400">
+                <p
+                  className="
+                    text-xs
+                    text-amber-600
+                    dark:text-amber-400
+                  "
+                >
                   {inspectionsError}
                 </p>
 
@@ -1012,7 +1833,16 @@ export default function AdminDashboard() {
 
             ) : inspectionsLoading ? (
 
-              <div className="h-[160px] flex items-center justify-center text-sm text-slate-400">
+              <div
+                className="
+                  h-[160px]
+                  flex
+                  items-center
+                  justify-center
+                  text-sm
+                  text-slate-400
+                "
+              >
                 Loading inspection data...
               </div>
 
@@ -1038,12 +1868,14 @@ export default function AdminDashboard() {
                     stroke="#e2e8f0"
                   />
 
+
                   <XAxis
                     dataKey="name"
                     tick={{
                       fontSize: 9,
                     }}
                   />
+
 
                   <YAxis
                     allowDecimals={false}
@@ -1052,7 +1884,9 @@ export default function AdminDashboard() {
                     }}
                   />
 
+
                   <Tooltip />
+
 
                   <Bar
                     dataKey="value"
@@ -1090,23 +1924,34 @@ export default function AdminDashboard() {
             className="
               bg-white dark:bg-slate-800
               rounded-xl
-              border border-slate-200 dark:border-slate-700
+              border border-slate-200
+              dark:border-slate-700
               overflow-hidden
             "
           >
 
             <div
               className="
-                flex items-center justify-between
+                flex
+                items-center
+                justify-between
                 px-5 py-4
-                border-b border-slate-100
+                border-b
+                border-slate-100
                 dark:border-slate-700
               "
             >
 
-              <h3 className="font-semibold text-slate-800 dark:text-slate-200">
+              <h3
+                className="
+                  font-semibold
+                  text-slate-800
+                  dark:text-slate-200
+                "
+              >
                 Ward Priority Overview
               </h3>
+
 
               <Link
                 to="/admin/insights"
@@ -1114,7 +1959,9 @@ export default function AdminDashboard() {
                   text-xs
                   text-blue-600
                   dark:text-blue-400
-                  flex items-center gap-1
+                  flex
+                  items-center
+                  gap-1
                   hover:underline
                 "
               >
@@ -1128,7 +1975,13 @@ export default function AdminDashboard() {
             </div>
 
 
-            <div className="divide-y divide-slate-100 dark:divide-slate-700">
+            <div
+              className="
+                divide-y
+                divide-slate-100
+                dark:divide-slate-700
+              "
+            >
 
               {priorities
                 .slice(0, 5)
@@ -1139,27 +1992,43 @@ export default function AdminDashboard() {
                       ws.tier
                     ];
 
+
                   return (
 
                     <div
                       key={ws.wardId}
                       className="
-                        flex items-center gap-3
+                        flex
+                        items-center
+                        gap-3
                         px-5 py-3
                       "
                     >
 
                       <div
-                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        className="
+                          w-2 h-2
+                          rounded-full
+                          flex-shrink-0
+                        "
                         style={{
                           background:
                             ts.dot,
                         }}
                       />
 
-                      <span className="text-sm text-slate-700 dark:text-slate-300 flex-1">
+
+                      <span
+                        className="
+                          text-sm
+                          text-slate-700
+                          dark:text-slate-300
+                          flex-1
+                        "
+                      >
                         {ws.wardName}
                       </span>
+
 
                       <span
                         className={`
@@ -1174,7 +2043,17 @@ export default function AdminDashboard() {
                         {ws.tier}
                       </span>
 
-                      <span className="text-sm font-bold text-slate-600 dark:text-slate-400 w-8 text-right">
+
+                      <span
+                        className="
+                          text-sm
+                          font-bold
+                          text-slate-600
+                          dark:text-slate-400
+                          w-8
+                          text-right
+                        "
+                      >
                         {ws.score}
                       </span>
 
@@ -1195,23 +2074,34 @@ export default function AdminDashboard() {
             className="
               bg-white dark:bg-slate-800
               rounded-xl
-              border border-slate-200 dark:border-slate-700
+              border border-slate-200
+              dark:border-slate-700
               overflow-hidden
             "
           >
 
             <div
               className="
-                flex items-center justify-between
+                flex
+                items-center
+                justify-between
                 px-5 py-4
-                border-b border-slate-100
+                border-b
+                border-slate-100
                 dark:border-slate-700
               "
             >
 
-              <h3 className="font-semibold text-slate-800 dark:text-slate-200">
+              <h3
+                className="
+                  font-semibold
+                  text-slate-800
+                  dark:text-slate-200
+                "
+              >
                 Delayed Projects
               </h3>
+
 
               <Link
                 to="/admin/projects"
@@ -1219,7 +2109,9 @@ export default function AdminDashboard() {
                   text-xs
                   text-blue-600
                   dark:text-blue-400
-                  flex items-center gap-1
+                  flex
+                  items-center
+                  gap-1
                   hover:underline
                 "
               >
@@ -1235,65 +2127,103 @@ export default function AdminDashboard() {
 
             {recentDelayed.length === 0 ? (
 
-              <div className="px-5 py-8 text-center text-sm text-slate-400">
+              <div
+                className="
+                  px-5 py-8
+                  text-center
+                  text-sm
+                  text-slate-400
+                "
+              >
                 No delayed projects 🎉
               </div>
 
             ) : (
 
-              <div className="divide-y divide-slate-100 dark:divide-slate-700">
+              <div
+                className="
+                  divide-y
+                  divide-slate-100
+                  dark:divide-slate-700
+                "
+              >
 
-                {recentDelayed.map((project) => (
+                {recentDelayed.map(
+                  (project) => (
 
-                  <div
-                    key={project.id}
-                    className="px-5 py-3"
-                  >
+                    <div
+                      key={project.id}
+                      className="px-5 py-3"
+                    >
 
-                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div
+                        className="
+                          flex
+                          items-start
+                          justify-between
+                          gap-2
+                          mb-1
+                        "
+                      >
 
-                      <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                        {project.name}
-                      </span>
+                        <span
+                          className="
+                            text-sm
+                            font-medium
+                            text-slate-800
+                            dark:text-slate-200
+                          "
+                        >
+                          {project.name}
+                        </span>
 
-                      <StatusBadge
-                        status={
-                          project.status
+
+                        <StatusBadge
+                          status={
+                            project.status
+                          }
+                        />
+
+                      </div>
+
+
+                      <div
+                        className="
+                          text-xs
+                          text-slate-500
+                        "
+                      >
+
+                        {getWardName(
+                          project.wardId
+                        )}
+
+                        {' · '}
+
+                        {formatCurrency(
+                          project.budget
+                        )}
+
+                        {' · '}
+
+                        {project.progress}% done
+
+                      </div>
+
+
+                      <ProgressBar
+                        value={
+                          project.progress
                         }
+                        color="red"
+                        size="xs"
+                        className="mt-1.5"
                       />
 
                     </div>
 
-                    <div className="text-xs text-slate-500">
-
-                      {getWardName(
-                        project.wardId
-                      )}
-
-                      {' · '}
-
-                      {formatCurrency(
-                        project.budget
-                      )}
-
-                      {' · '}
-
-                      {project.progress}% done
-
-                    </div>
-
-                    <ProgressBar
-                      value={
-                        project.progress
-                      }
-                      color="red"
-                      size="xs"
-                      className="mt-1.5"
-                    />
-
-                  </div>
-
-                ))}
+                  )
+                )}
 
               </div>
 
@@ -1312,23 +2242,34 @@ export default function AdminDashboard() {
           className="
             bg-white dark:bg-slate-800
             rounded-xl
-            border border-slate-200 dark:border-slate-700
+            border border-slate-200
+            dark:border-slate-700
             overflow-hidden
           "
         >
 
           <div
             className="
-              flex items-center justify-between
+              flex
+              items-center
+              justify-between
               px-5 py-4
-              border-b border-slate-100
+              border-b
+              border-slate-100
               dark:border-slate-700
             "
           >
 
-            <h3 className="font-semibold text-slate-800 dark:text-slate-200">
+            <h3
+              className="
+                font-semibold
+                text-slate-800
+                dark:text-slate-200
+              "
+            >
               New Reported Issues
             </h3>
+
 
             <Link
               to="/admin/issues"
@@ -1336,7 +2277,9 @@ export default function AdminDashboard() {
                 text-xs
                 text-blue-600
                 dark:text-blue-400
-                flex items-center gap-1
+                flex
+                items-center
+                gap-1
                 hover:underline
               "
             >
@@ -1354,7 +2297,16 @@ export default function AdminDashboard() {
 
           {issuesLoading && (
 
-            <div className="px-5 py-8 flex items-center justify-center text-sm text-slate-400">
+            <div
+              className="
+                px-5 py-8
+                flex
+                items-center
+                justify-center
+                text-sm
+                text-slate-400
+              "
+            >
 
               <RefreshCw
                 size={16}
@@ -1373,11 +2325,23 @@ export default function AdminDashboard() {
           {!issuesLoading &&
             issuesError && (
 
-              <div className="px-5 py-8 text-center">
+              <div
+                className="
+                  px-5 py-8
+                  text-center
+                "
+              >
 
-                <p className="text-sm text-red-500 mb-2">
+                <p
+                  className="
+                    text-sm
+                    text-red-500
+                    mb-2
+                  "
+                >
                   {issuesError}
                 </p>
+
 
                 <button
                   onClick={fetchIssues}
@@ -1401,7 +2365,14 @@ export default function AdminDashboard() {
             !issuesError &&
             recentIssues.length === 0 && (
 
-              <div className="px-5 py-8 text-center text-sm text-slate-400">
+              <div
+                className="
+                  px-5 py-8
+                  text-center
+                  text-sm
+                  text-slate-400
+                "
+              >
                 No new reported issues 🎉
               </div>
 
@@ -1414,109 +2385,165 @@ export default function AdminDashboard() {
             !issuesError &&
             recentIssues.length > 0 && (
 
-              <div className="divide-y divide-slate-100 dark:divide-slate-700">
+              <div
+                className="
+                  divide-y
+                  divide-slate-100
+                  dark:divide-slate-700
+                "
+              >
 
-                {recentIssues.map((issue) => {
+                {recentIssues.map(
+                  (issue) => {
 
-                  const status =
-                    normalizeStatus(
-                      issue.status
-                    );
+                    const status =
+                      normalizeStatus(
+                        issue.status
+                      );
 
-                  const createdDate =
-                    issue.created_at
-                      ? new Date(
-                          issue.created_at
-                        )
-                      : null;
 
-                  return (
+                    const createdDate =
+                      issue.created_at
+                        ? new Date(
+                            issue.created_at
+                          )
+                        : null;
 
-                    <div
-                      key={issue.id}
-                      className="
-                        flex items-start
-                        gap-3
-                        px-5 py-3
-                      "
-                    >
 
-                      <MapPin
-                        size={14}
+                    return (
+
+                      <div
+                        key={issue.id}
                         className="
-                          text-red-400
-                          mt-0.5
-                          flex-shrink-0
+                          flex
+                          items-start
+                          gap-3
+                          px-5 py-3
                         "
-                      />
+                      >
 
-                      <div className="flex-1 min-w-0">
+                        <MapPin
+                          size={14}
+                          className="
+                            text-red-400
+                            mt-0.5
+                            flex-shrink-0
+                          "
+                        />
 
-                        <div className="flex items-center gap-2 flex-wrap">
 
-                          <span className="text-xs font-mono text-slate-400">
-                            {issue.id}
-                          </span>
+                        <div
+                          className="
+                            flex-1
+                            min-w-0
+                          "
+                        >
 
-                          <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                            {issue.category}
-                          </span>
+                          <div
+                            className="
+                              flex
+                              items-center
+                              gap-2
+                              flex-wrap
+                            "
+                          >
 
-                          {issue.location && (
-
-                            <span className="text-xs text-slate-400">
-                              {issue.location}
+                            <span
+                              className="
+                                text-xs
+                                font-mono
+                                text-slate-400
+                              "
+                            >
+                              {issue.id}
                             </span>
+
+
+                            <span
+                              className="
+                                text-sm
+                                font-medium
+                                text-slate-800
+                                dark:text-slate-200
+                              "
+                            >
+                              {issue.category}
+                            </span>
+
+
+                            {issue.location && (
+
+                              <span
+                                className="
+                                  text-xs
+                                  text-slate-400
+                                "
+                              >
+                                {issue.location}
+                              </span>
+
+                            )}
+
+                          </div>
+
+
+                          <div
+                            className="
+                              text-xs
+                              text-slate-500
+                              truncate
+                            "
+                          >
+
+                            {issue.description
+                              ? issue.description.slice(
+                                  0,
+                                  70
+                                )
+                              : 'No description'}
+
+                            {issue.description &&
+                            issue.description.length >
+                              70
+                              ? '…'
+                              : ''}
+
+                          </div>
+
+
+                          {createdDate && (
+
+                            <div
+                              className="
+                                text-[10px]
+                                text-slate-400
+                                mt-0.5
+                              "
+                            >
+
+                              Submitted:{' '}
+
+                              {formatDate(
+                                createdDate
+                              )}
+
+                            </div>
 
                           )}
 
                         </div>
 
 
-                        <div className="text-xs text-slate-500 truncate">
-
-                          {issue.description
-                            ? issue.description.slice(
-                                0,
-                                70
-                              )
-                            : 'No description'}
-
-                          {issue.description &&
-                          issue.description.length >
-                            70
-                            ? '…'
-                            : ''}
-
-                        </div>
-
-
-                        {createdDate && (
-
-                          <div className="text-[10px] text-slate-400 mt-0.5">
-
-                            Submitted:{' '}
-
-                            {formatDate(
-                              createdDate
-                            )}
-
-                          </div>
-
-                        )}
+                        <StatusBadge
+                          status={status}
+                        />
 
                       </div>
 
+                    );
 
-                      <StatusBadge
-                        status={status}
-                      />
-
-                    </div>
-
-                  );
-
-                })}
+                  }
+                )}
 
               </div>
 
@@ -1530,4 +2557,5 @@ export default function AdminDashboard() {
     </div>
 
   );
+
 }
