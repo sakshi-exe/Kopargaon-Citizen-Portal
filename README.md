@@ -294,9 +294,60 @@ This project is developed for **educational and hackathon purposes**.
 
 ---
 
+---
+
+## Supabase Database & Backend Architecture
+
+The application is powered by **Supabase PostgreSQL**, **Supabase Auth (JWT)**, and **Supabase Storage**.
+
+### Database Tables (`supabase/schema.sql`):
+* `profiles`: User identities with role-based policies (`citizen`, `admin`, `inspector`).
+* `reports`: Citizen complaint tickets mapped with coordinates, status, and categories.
+* `report_evidence`: Photographic and video evidence files attached to tickets.
+* `infrastructure`: Municipal infrastructure inventory with QR code references.
+* `projects`: Urban development projects and expenditure tracking.
+* `notifications`: Real-time citizen issue status updates.
+* **Storage Bucket**: `report-evidence` for high-resolution citizen uploads.
+
+---
+
+## Local Setup Instructions
+
+1. **Clone the repository and switch to `frontend` branch**:
+   ```bash
+   git clone https://github.com/sakshi-exe/Kopargaon-Citizen-Portal.git
+   cd Kopargaon-Citizen-Portal
+   git checkout frontend
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Configure Environment Variables**:
+   Create a `.env.local` file in the project root:
+   ```env
+   VITE_SUPABASE_URL=https://klscvpaukgnwuoknzfyy.supabase.co
+   VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
+   ```
+   *(Reference `.env.example`)*
+
+4. **Initialize Supabase Schema**:
+   Run `supabase/schema.sql` in your Supabase project SQL Editor to configure all tables, RLS security policies, and storage rules.
+
+5. **Start the Development Server**:
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:5173/](http://localhost:5173/) or [http://127.0.0.1:5173/](http://127.0.0.1:5173/) in your browser.
+
+---
+
 ## Repository
 
 GitHub: https://github.com/sakshi-exe/Kopargaon-Citizen-Portal
+Branch: `frontend`
 
 > From infrastructure data to citizen action — making Kopargaon more connected, transparent, and accountable.
 

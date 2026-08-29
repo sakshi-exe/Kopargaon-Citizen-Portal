@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext.jsx';
 import AssetDetailModal from './components/ui/AssetDetailModal.jsx';
+import AuthModal from './components/ui/AuthModal.jsx';
 
 // Layouts
 import CitizenLayout from './layouts/CitizenLayout.jsx';
@@ -81,8 +82,16 @@ function AppRoutes() {
 
       {/* Global Asset QR & Transparency Profile Modal */}
       <AssetDetailModal />
+
+      {/* Global Supabase Auth Modal */}
+      <GlobalAuthModal />
     </>
   );
+}
+
+function GlobalAuthModal() {
+  const { isAuthModalOpen, closeAuthModal } = useApp();
+  return <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />;
 }
 
 export default function App() {
