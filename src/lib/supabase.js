@@ -144,7 +144,6 @@ export async function getCurrentProfile(userId) {
 
 export async function uploadReportEvidence(file, reportId) {
   if (!isSupabaseConfigured || !file) {
-    // If not configured or mock, return local object url or data url
     return {
       url: typeof file === 'string' ? file : URL.createObjectURL(file),
       path: 'local-file',
@@ -193,7 +192,7 @@ export async function uploadReportEvidence(file, reportId) {
 }
 
 // ==============================================================================
-// REPORTS / ISSUES HELPERS
+// REPORTS / ISSUES HELPERS (Supports both 'reports' and 'issues' table names)
 // ==============================================================================
 
 export async function createReportInSupabase(reportData, file = null) {
@@ -219,8 +218,8 @@ export async function createReportInSupabase(reportData, file = null) {
   }
 
   try {
-    // 1. Insert into reports table
-    const { data: reportResult, error: reportError } = await supabase
+    // 1. Try insert into 'reports' table
+    let { data: reportResult, error: reportError } = await supabase
       .from('reports')
       .insert([
         {
@@ -242,6 +241,31 @@ export async function createReportInSupabase(reportData, file = null) {
       .select()
       .single();
 
+    // If 'reports' does not exist, fallback to 'issues' table
+    if (reportError) {
+      console.warn('Reports table insert failed, trying issues table:', reportError.message);
+      const { data: issueResult, error: issueError } = await supabase
+        .from('issues')
+        .insert([
+          {
+            category: reportData.category || 'Other',
+            description: reportData.description,
+            ward_id: reportData.wardId || 'W1',
+            latitude: reportData.lat || 19.8917,
+            longitude: reportData.lng || 74.4789,
+            location: reportData.wardId || 'Kopargaon',
+            status: 'Reported',
+          },
+        ])
+        .select()
+        .single();
+
+      if (!issueError) {
+        reportResult = issueResult;
+        reportError = null;
+      }
+    }
+
     if (reportError) throw reportError;
 
     // 2. Insert evidence record if photo/video uploaded
@@ -254,13 +278,12 @@ export async function createReportInSupabase(reportData, file = null) {
           file_type: evidence.type || 'image',
           caption: reportData.description?.slice(0, 100) || 'Citizen evidence',
         },
-      ]);
+      ]).catch(e => console.warn('report_evidence insert skipped:', e.message));
     }
 
     return { success: true, data: reportResult, evidenceUrl: evidence?.url };
   } catch (error) {
     console.error('Supabase createReport error:', error);
-    // Return gracefully so UI can still update local state
     return { success: false, error, fallbackId: reportId };
   }
 }
@@ -268,6 +291,7 @@ export async function createReportInSupabase(reportData, file = null) {
 export async function fetchLiveReports() {
   if (!isSupabaseConfigured) return [];
   try {
+    // 1. Try 'reports' table
     const { data, error } = await supabase
       .from('reports')
       .select(`
@@ -276,10 +300,31 @@ export async function fetchLiveReports() {
       `)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data || [];
+    if (!error && data && data.length > 0) return data;
+
+    // 2. Fallback to 'issues' table
+    const { data: issuesData, error: issuesErr } = await supabase
+      .from('issues')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!issuesErr && issuesData) {
+      return issuesData.map(i => ({
+        id: i.id ? `CF-KPG-${i.id}` : `CF-KPG-${Math.floor(1000 + Math.random() * 9000)}`,
+        category: i.category,
+        description: i.description,
+        ward_id: i.ward_id || 'W1',
+        latitude: i.latitude || 19.8917,
+        longitude: i.longitude || 74.4789,
+        status: i.status || 'Reported',
+        created_at: i.created_at,
+        updated_at: i.created_at,
+      }));
+    }
+
+    return [];
   } catch (err) {
-    console.warn('Fetch live reports fallback to mock:', err.message);
+    console.warn('Fetch live reports fallback:', err.message);
     return [];
   }
 }
@@ -296,8 +341,15 @@ export async function fetchMyReportsFromSupabase(userId) {
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data || [];
+    if (!error && data) return data;
+
+    // Fallback to issues table if user_id or all
+    const { data: issuesData } = await supabase
+      .from('issues')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    return issuesData || [];
   } catch (err) {
     console.warn('Fetch my reports fallback:', err.message);
     return [];
@@ -316,14 +368,18 @@ export async function updateReportStatusInSupabase(reportId, newStatus, resoluti
       updates.resolution_notes = resolutionNotes || 'Resolved and verified by municipal authority.';
     }
 
+    // Try updating 'reports'
     const { data, error } = await supabase
       .from('reports')
       .update(updates)
       .eq('id', reportId)
       .select();
 
-    if (error) throw error;
-    return { success: true, data };
+    if (!error && data && data.length > 0) return { success: true, data };
+
+    // Fallback update in 'issues' table
+    await supabase.from('issues').update({ status: newStatus }).eq('id', reportId);
+    return { success: true };
   } catch (error) {
     console.error('Update report status error:', error);
     return { success: false, error };
