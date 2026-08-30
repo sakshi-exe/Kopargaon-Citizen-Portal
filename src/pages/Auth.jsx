@@ -4,17 +4,11 @@ import {
   Mail,
   Lock,
   User,
-  Chrome,
   ShieldCheck,
   Loader2,
-  ArrowLeft,
 } from 'lucide-react';
 
 export default function Auth() {
-  // ======================================================
-  // STATE
-  // ======================================================
-
   const [role, setRole] = useState('citizen');
   const [mode, setMode] = useState('login');
 
@@ -27,7 +21,34 @@ export default function Auth() {
   const [error, setError] = useState('');
 
   // ======================================================
-  // RESET MESSAGES
+  // CHECK EXISTING SESSION
+  // ======================================================
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+
+      if (!data?.session) return;
+
+      const user = data.session.user;
+
+      const userRole =
+        user?.user_metadata?.role ||
+        user?.app_metadata?.role ||
+        'citizen';
+
+      if (userRole === 'admin') {
+        window.location.href = '/admin';
+      } else {
+        window.location.href = '/citizen';
+      }
+    };
+
+    checkSession();
+  }, []);
+
+  // ======================================================
+  // RESET
   // ======================================================
 
   const resetMessages = () => {
@@ -35,174 +56,58 @@ export default function Auth() {
     setMessage('');
   };
 
-  // ======================================================
-  // ROLE SWITCH
-  // ======================================================
-
   const switchRole = (nextRole) => {
     setRole(nextRole);
     setMode('login');
     setPassword('');
+    setName('');
     resetMessages();
-  };
-
-  // ======================================================
-  // CHECK EXISTING SESSION
-  // ======================================================
-
-  useEffect(() => {
-    let mounted = true;
-
-    const checkSession = async () => {
-      const { data, error: sessionError } =
-        await supabase.auth.getSession();
-
-      if (sessionError) {
-        console.error(
-          'Session check error:',
-          sessionError
-        );
-        return;
-      }
-
-      if (!mounted || !data?.session) {
-        return;
-      }
-
-      const user = data.session.user;
-
-      const userRole =
-        user?.app_metadata?.role ||
-        user?.user_metadata?.role ||
-        'citizen';
-
-      // --------------------------------------------------
-      // ADMIN SESSION
-      // --------------------------------------------------
-
-      if (userRole === 'admin') {
-        window.location.replace('/admin');
-        return;
-      }
-
-      // --------------------------------------------------
-      // CITIZEN SESSION
-      // --------------------------------------------------
-
-      window.location.replace('/citizen');
-    };
-
-    checkSession();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  // ======================================================
-  // GOOGLE LOGIN
-  // ======================================================
-
-  const handleGoogleLogin = async () => {
-    resetMessages();
-
-    // Google login is kept for citizens.
-    // Admin access remains restricted to authorized
-    // admin email/password accounts.
-
-    if (role === 'admin') {
-      setError(
-        'Admin access is restricted to authorized admin accounts. Please use your admin email and password.'
-      );
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const { error: googleError } =
-        await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo:
-              `${window.location.origin}/auth`,
-          },
-        });
-
-      if (googleError) {
-        throw googleError;
-      }
-
-      // Supabase redirects the browser to Google.
-    } catch (err) {
-      console.error(
-        'Google authentication error:',
-        err
-      );
-
-      setError(
-        err?.message ||
-          'Google sign in failed. Please try again.'
-      );
-
-      setLoading(false);
-    }
   };
 
   // ======================================================
   // EMAIL LOGIN / SIGNUP
   // ======================================================
 
-  const handleEmailSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     resetMessages();
 
-    // --------------------------------------------------
-    // BASIC VALIDATION
-    // --------------------------------------------------
-
     if (!email.trim()) {
-      setError(
-        'Please enter your email address.'
-      );
+      setError('Please enter your email address.');
       return;
     }
 
     if (!password) {
-      setError(
-        'Please enter your password.'
-      );
+      setError('Please enter your password.');
       return;
-    }
-
-    if (mode === 'signup' && role === 'citizen') {
-      if (!name.trim()) {
-        setError(
-          'Please enter your full name.'
-        );
-        return;
-      }
-
-      if (password.length < 6) {
-        setError(
-          'Password must be at least 6 characters.'
-        );
-        return;
-      }
     }
 
     setLoading(true);
 
     try {
       // ==================================================
-      // CITIZEN SIGNUP
+      // CITIZEN SIGN UP
       // ==================================================
 
-      if (
-        mode === 'signup' &&
-        role === 'citizen'
-      ) {
+      if (mode === 'signup') {
+        // Admin signup is NOT allowed
+        if (role === 'admin') {
+          throw new Error(
+            'Admin accounts cannot be created here. Please use an authorized admin account.'
+          );
+        }
+
+        if (!name.trim()) {
+          throw new Error('Please enter your full name.');
+        }
+
+        if (password.length < 6) {
+          throw new Error(
+            'Password must be at least 6 characters.'
+          );
+        }
+
         const {
           data,
           error: signUpError,
@@ -221,41 +126,34 @@ export default function Auth() {
           throw signUpError;
         }
 
-        // ------------------------------------------------
-        // EMAIL CONFIRMATION DISABLED
-        // ------------------------------------------------
-
+        // If email confirmation is disabled
         if (data?.session) {
-          window.location.replace('/citizen');
+          window.location.href = '/citizen';
           return;
         }
 
-        // ------------------------------------------------
-        // EMAIL CONFIRMATION ENABLED
-        // ------------------------------------------------
-
         setMessage(
-          'Account created! Please check your email to confirm your account.'
+          'Account created successfully! Please check your email to confirm your account.'
         );
 
         setMode('login');
         setPassword('');
+        setName('');
 
         return;
       }
 
       // ==================================================
-      // EMAIL LOGIN
+      // LOGIN
       // ==================================================
 
       const {
         data,
         error: loginError,
-      } =
-        await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
+      } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
       if (loginError) {
         throw loginError;
@@ -269,13 +167,9 @@ export default function Auth() {
 
       const user = data.session.user;
 
-      // ==================================================
-      // GET USER ROLE
-      // ==================================================
-
       const userRole =
-        user?.app_metadata?.role ||
         user?.user_metadata?.role ||
+        user?.app_metadata?.role ||
         'citizen';
 
       // ==================================================
@@ -291,7 +185,7 @@ export default function Auth() {
           );
         }
 
-        window.location.replace('/admin');
+        window.location.href = '/admin';
         return;
       }
 
@@ -300,13 +194,15 @@ export default function Auth() {
       // ==================================================
 
       if (userRole === 'admin') {
-        // An admin account can still exist,
-        // but don't allow accidental citizen entry.
-        window.location.replace('/admin');
-        return;
+        await supabase.auth.signOut();
+
+        throw new Error(
+          'This is an admin account. Please use the Admin Portal.'
+        );
       }
 
-      window.location.replace('/citizen');
+      window.location.href = '/citizen';
+
     } catch (err) {
       console.error(
         'Authentication error:',
@@ -323,32 +219,11 @@ export default function Auth() {
   };
 
   // ======================================================
-  // TOGGLE LOGIN / SIGNUP
-  // ======================================================
-
-  const toggleMode = () => {
-    resetMessages();
-
-    if (role === 'admin') {
-      setMode('login');
-      return;
-    }
-
-    setMode(
-      mode === 'login'
-        ? 'signup'
-        : 'login'
-    );
-
-    setPassword('');
-  };
-
-  // ======================================================
   // UI
   // ======================================================
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4 py-10">
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-slate-950">
 
       <div className="w-full max-w-md">
 
@@ -356,14 +231,20 @@ export default function Auth() {
             BRAND
         ================================================== */}
 
-        <div className="text-center mb-8">
+        <div className="text-center mb-7">
 
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-600 shadow-xl shadow-teal-900/30">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-teal-600 flex items-center justify-center shadow-xl">
 
-            <ShieldCheck
-              size={32}
-              className="text-white"
-            />
+            {role === 'admin' ? (
+              <ShieldCheck
+                size={32}
+                className="text-white"
+              />
+            ) : (
+              <span className="text-3xl">
+                🏢
+              </span>
+            )}
 
           </div>
 
@@ -388,45 +269,43 @@ export default function Auth() {
               ROLE SWITCH
           ================================================== */}
 
-          <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-800 p-1 mb-6">
-
-            {/* CITIZEN */}
+          <div className="grid grid-cols-2 gap-2 p-1 mb-6 rounded-xl bg-slate-800">
 
             <button
               type="button"
               onClick={() =>
                 switchRole('citizen')
               }
-              disabled={loading}
-              className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition ${
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition ${
                 role === 'citizen'
-                  ? 'bg-teal-600 text-white'
+                  ? 'bg-teal-600 text-white shadow'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
+
               <User size={16} />
 
               Citizen
+
             </button>
 
-
-            {/* ADMIN */}
 
             <button
               type="button"
               onClick={() =>
                 switchRole('admin')
               }
-              disabled={loading}
-              className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition ${
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition ${
                 role === 'admin'
-                  ? 'bg-indigo-600 text-white'
+                  ? 'bg-indigo-600 text-white shadow'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
+
               <ShieldCheck size={16} />
 
               Admin
+
             </button>
 
           </div>
@@ -466,122 +345,88 @@ export default function Auth() {
           ================================================== */}
 
           {error && (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+
+            <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
+
               {error}
+
             </div>
+
           )}
 
 
           {/* ==================================================
-              SUCCESS MESSAGE
+              SUCCESS
           ================================================== */}
 
           {message && (
-            <div className="mb-4 rounded-xl border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-300">
+
+            <div className="mb-4 p-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-300 text-sm">
+
               {message}
+
             </div>
+
           )}
 
 
           {/* ==================================================
-              GOOGLE LOGIN
+              FORM
           ================================================== */}
 
-          {role === 'citizen' && (
-            <>
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                disabled={loading}
-                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-white px-4 py-3 font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
+          <form onSubmit={handleSubmit}>
 
-                {loading ? (
-                  <Loader2
-                    size={19}
-                    className="animate-spin"
+            {/* NAME */}
+
+            {mode === 'signup' && role === 'citizen' && (
+
+              <div className="mb-4">
+
+                <label className="block mb-2 text-sm font-semibold text-slate-200">
+
+                  Full Name
+
+                </label>
+
+                <div className="relative">
+
+                  <User
+                    size={17}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
                   />
-                ) : (
-                  <Chrome size={19} />
-                )}
 
-                Continue with Google
-
-              </button>
-
-
-              {/* DIVIDER */}
-
-              <div className="my-6 flex items-center gap-3">
-
-                <div className="h-px flex-1 bg-slate-800" />
-
-                <span className="text-xs font-medium text-slate-500">
-                  OR
-                </span>
-
-                <div className="h-px flex-1 bg-slate-800" />
-
-              </div>
-            </>
-          )}
-
-
-          {/* ==================================================
-              EMAIL FORM
-          ================================================== */}
-
-          <form
-            onSubmit={handleEmailSubmit}
-            className="space-y-4"
-          >
-
-            {/* NAME - CITIZEN SIGNUP ONLY */}
-
-            {role === 'citizen' &&
-              mode === 'signup' && (
-                <div>
-
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Full Name
-                  </label>
-
-                  <div className="relative">
-
-                    <User
-                      size={18}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
-                    />
-
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) =>
-                        setName(e.target.value)
-                      }
-                      placeholder="Enter your full name"
-                      disabled={loading}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-800 py-3 pl-10 pr-4 text-white outline-none transition placeholder:text-slate-500 focus:border-teal-500"
-                    />
-
-                  </div>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) =>
+                      setName(e.target.value)
+                    }
+                    placeholder="Enter your name"
+                    autoComplete="name"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-white placeholder-slate-500 outline-none focus:border-teal-500"
+                  />
 
                 </div>
-              )}
+
+              </div>
+
+            )}
 
 
             {/* EMAIL */}
 
-            <div>
+            <div className="mb-4">
 
-              <label className="mb-2 block text-sm font-medium text-slate-300">
-                Email Address
+              <label className="block mb-2 text-sm font-semibold text-slate-200">
+
+                Email
+
               </label>
 
               <div className="relative">
 
                 <Mail
-                  size={18}
+                  size={17}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
                 />
 
@@ -593,8 +438,7 @@ export default function Auth() {
                   }
                   placeholder="you@example.com"
                   autoComplete="email"
-                  disabled={loading}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-800 py-3 pl-10 pr-4 text-white outline-none transition placeholder:text-slate-500 focus:border-teal-500"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-white placeholder-slate-500 outline-none focus:border-teal-500"
                 />
 
               </div>
@@ -604,16 +448,18 @@ export default function Auth() {
 
             {/* PASSWORD */}
 
-            <div>
+            <div className="mb-5">
 
-              <label className="mb-2 block text-sm font-medium text-slate-300">
+              <label className="block mb-2 text-sm font-semibold text-slate-200">
+
                 Password
+
               </label>
 
               <div className="relative">
 
                 <Lock
-                  size={18}
+                  size={17}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
                 />
 
@@ -623,24 +469,16 @@ export default function Auth() {
                   onChange={(e) =>
                     setPassword(e.target.value)
                   }
-                  placeholder="Enter your password"
+                  placeholder="••••••••"
                   autoComplete={
-                    mode === 'signup'
-                      ? 'new-password'
-                      : 'current-password'
+                    mode === 'login'
+                      ? 'current-password'
+                      : 'new-password'
                   }
-                  disabled={loading}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-800 py-3 pl-10 pr-4 text-white outline-none transition placeholder:text-slate-500 focus:border-teal-500"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-white placeholder-slate-500 outline-none focus:border-teal-500"
                 />
 
               </div>
-
-              {mode === 'signup' &&
-                role === 'citizen' && (
-                  <p className="mt-2 text-xs text-slate-500">
-                    Password must be at least 6 characters.
-                  </p>
-                )}
 
             </div>
 
@@ -650,25 +488,32 @@ export default function Auth() {
             <button
               type="submit"
               disabled={loading}
-              className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                role === 'admin'
-                  ? 'bg-indigo-600 hover:bg-indigo-500'
-                  : 'bg-teal-600 hover:bg-teal-500'
+              className={`w-full py-3 rounded-xl flex items-center justify-center gap-2 font-bold text-sm transition ${
+                loading
+                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                  : role === 'admin'
+                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                  : 'bg-teal-600 hover:bg-teal-700 text-white'
               }`}
             >
 
-              {loading && (
-                <Loader2
-                  size={18}
-                  className="animate-spin"
-                />
-              )}
+              {loading ? (
+                <>
+                  <Loader2
+                    size={17}
+                    className="animate-spin"
+                  />
 
-              {role === 'admin'
-                ? 'Sign in as Admin'
-                : mode === 'login'
-                ? 'Sign In'
-                : 'Create Account'}
+                  Please wait...
+
+                </>
+              ) : (
+                <>
+                  {mode === 'login'
+                    ? 'Sign In'
+                    : 'Create Account'}
+                </>
+              )}
 
             </button>
 
@@ -676,26 +521,42 @@ export default function Auth() {
 
 
           {/* ==================================================
-              LOGIN / SIGNUP SWITCH
+              SIGNUP TOGGLE
           ================================================== */}
 
           {role === 'citizen' && (
-            <div className="mt-6 text-center">
+
+            <div className="mt-5 text-center text-sm text-slate-400">
+
+              {mode === 'login'
+                ? "Don't have an account?"
+                : 'Already have an account?'}
+
+              {' '}
 
               <button
                 type="button"
-                onClick={toggleMode}
-                disabled={loading}
-                className="text-sm font-semibold text-teal-400 hover:text-teal-300"
+                onClick={() => {
+                  setMode(
+                    mode === 'login'
+                      ? 'signup'
+                      : 'login'
+                  );
+
+                  resetMessages();
+                  setPassword('');
+                }}
+                className="font-bold text-teal-400 hover:text-teal-300"
               >
 
                 {mode === 'login'
-                  ? "Don't have an account? Create one"
-                  : 'Already have an account? Sign in'}
+                  ? 'Create one'
+                  : 'Sign in'}
 
               </button>
 
             </div>
+
           )}
 
 
@@ -704,56 +565,24 @@ export default function Auth() {
           ================================================== */}
 
           {role === 'admin' && (
-            <div className="mt-5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3">
 
-              <div className="flex items-start gap-2">
+            <div className="mt-5 p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 text-center">
 
-                <ShieldCheck
-                  size={17}
-                  className="mt-0.5 shrink-0 text-indigo-400"
-                />
-
-                <p className="text-xs leading-5 text-slate-400">
-                  Admin access is restricted to authorized
-                  municipal personnel. Selecting Admin does
-                  not automatically grant admin privileges.
-                </p>
-
-              </div>
+              Admin accounts are provisioned
+              separately by the municipal system.
 
             </div>
+
           )}
-
-
-          {/* ==================================================
-              FOOTER
-          ================================================== */}
-
-          <div className="mt-6 text-center">
-
-            <p className="text-xs text-slate-600">
-              CivicFix • Smart Civic Governance
-            </p>
-
-          </div>
 
         </div>
 
 
-        {/* ==================================================
-            BACK
-        ================================================== */}
+        {/* FOOTER */}
 
-        <button
-          type="button"
-          onClick={() =>
-            window.history.back()
-          }
-          className="mx-auto mt-5 flex items-center gap-2 text-sm text-slate-500 transition hover:text-slate-300"
-        >
-          <ArrowLeft size={16} />
-          Back
-        </button>
+        <p className="text-center text-xs text-slate-600 mt-5">
+          CivicFix • Kopargaon Smart Governance
+        </p>
 
       </div>
 
