@@ -4,55 +4,30 @@ import {
   Mail,
   Lock,
   User,
-  Phone,
   Chrome,
   ShieldCheck,
-  ArrowLeft,
   Loader2,
+  ArrowLeft,
 } from 'lucide-react';
 
 export default function Auth() {
-  const [role, setRole] = useState('citizen');
+  // ======================================================
+  // STATE
+  // ======================================================
 
+  const [role, setRole] = useState('citizen');
   const [mode, setMode] = useState('login');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
-
-  const [authMethod, setAuthMethod] = useState('email');
-
-  const [otpSent, setOtpSent] = useState(false);
 
   const [loading, setLoading] = useState(false);
-
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   // ======================================================
-  // CHECK EXISTING SESSION
-  // ======================================================
-
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data } =
-        await supabase.auth.getSession();
-
-      if (data?.session) {
-        window.location.href =
-          role === 'admin'
-            ? '/admin'
-            : '/citizen';
-      }
-    };
-
-    checkSession();
-  }, [role]);
-
-  // ======================================================
-  // RESET FORM
+  // RESET MESSAGES
   // ======================================================
 
   const resetMessages = () => {
@@ -60,26 +35,92 @@ export default function Auth() {
     setMessage('');
   };
 
+  // ======================================================
+  // ROLE SWITCH
+  // ======================================================
+
   const switchRole = (nextRole) => {
     setRole(nextRole);
     setMode('login');
-    setAuthMethod('email');
-    setOtpSent(false);
     setPassword('');
-    setOtp('');
     resetMessages();
   };
+
+  // ======================================================
+  // CHECK EXISTING SESSION
+  // ======================================================
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkSession = async () => {
+      const { data, error: sessionError } =
+        await supabase.auth.getSession();
+
+      if (sessionError) {
+        console.error(
+          'Session check error:',
+          sessionError
+        );
+        return;
+      }
+
+      if (!mounted || !data?.session) {
+        return;
+      }
+
+      const user = data.session.user;
+
+      const userRole =
+        user?.app_metadata?.role ||
+        user?.user_metadata?.role ||
+        'citizen';
+
+      // --------------------------------------------------
+      // ADMIN SESSION
+      // --------------------------------------------------
+
+      if (userRole === 'admin') {
+        window.location.replace('/admin');
+        return;
+      }
+
+      // --------------------------------------------------
+      // CITIZEN SESSION
+      // --------------------------------------------------
+
+      window.location.replace('/citizen');
+    };
+
+    checkSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // ======================================================
   // GOOGLE LOGIN
   // ======================================================
 
   const handleGoogleLogin = async () => {
-    setLoading(true);
     resetMessages();
 
+    // Google login is kept for citizens.
+    // Admin access remains restricted to authorized
+    // admin email/password accounts.
+
+    if (role === 'admin') {
+      setError(
+        'Admin access is restricted to authorized admin accounts. Please use your admin email and password.'
+      );
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      const { error } =
+      const { error: googleError } =
         await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
@@ -88,9 +129,11 @@ export default function Auth() {
           },
         });
 
-      if (error) {
-        throw error;
+      if (googleError) {
+        throw googleError;
       }
+
+      // Supabase redirects the browser to Google.
     } catch (err) {
       console.error(
         'Google authentication error:',
@@ -107,114 +150,6 @@ export default function Auth() {
   };
 
   // ======================================================
-  // PHONE OTP
-  // ======================================================
-
-  const sendPhoneOtp = async () => {
-    resetMessages();
-
-    if (!phone.trim()) {
-      setError(
-        'Please enter your phone number.'
-      );
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const { error } =
-        await supabase.auth.signInWithOtp({
-          phone: phone.trim(),
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      setOtpSent(true);
-
-      setMessage(
-        'OTP sent successfully. Please check your phone.'
-      );
-    } catch (err) {
-      console.error(
-        'Phone OTP error:',
-        err
-      );
-
-      setError(
-        err?.message ||
-          'Could not send OTP. Please check your phone number.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ======================================================
-  // VERIFY PHONE OTP
-  // ======================================================
-
-  const verifyPhoneOtp = async () => {
-    resetMessages();
-
-    if (!otp.trim()) {
-      setError(
-        'Please enter the OTP.'
-      );
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const { data, error } =
-        await supabase.auth.verifyOtp({
-          phone: phone.trim(),
-          token: otp.trim(),
-          type: 'sms',
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      if (data?.session) {
-        /*
-         * Admin accounts still need to be
-         * authorized separately.
-         *
-         * For now phone authentication
-         * is treated as citizen authentication.
-         */
-        if (role === 'admin') {
-          await supabase.auth.signOut();
-
-          throw new Error(
-            'Admin access cannot be created using phone OTP. Please use your authorized admin email account.'
-          );
-        }
-
-        window.location.href =
-          '/citizen';
-      }
-    } catch (err) {
-      console.error(
-        'OTP verification error:',
-        err
-      );
-
-      setError(
-        err?.message ||
-          'Invalid OTP. Please try again.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ======================================================
   // EMAIL LOGIN / SIGNUP
   // ======================================================
 
@@ -222,6 +157,10 @@ export default function Auth() {
     e.preventDefault();
 
     resetMessages();
+
+    // --------------------------------------------------
+    // BASIC VALIDATION
+    // --------------------------------------------------
 
     if (!email.trim()) {
       setError(
@@ -237,29 +176,33 @@ export default function Auth() {
       return;
     }
 
+    if (mode === 'signup' && role === 'citizen') {
+      if (!name.trim()) {
+        setError(
+          'Please enter your full name.'
+        );
+        return;
+      }
+
+      if (password.length < 6) {
+        setError(
+          'Password must be at least 6 characters.'
+        );
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
-      // --------------------------------------------------
-      // SIGN UP
-      // --------------------------------------------------
+      // ==================================================
+      // CITIZEN SIGNUP
+      // ==================================================
 
       if (
         mode === 'signup' &&
         role === 'citizen'
       ) {
-        if (!name.trim()) {
-          throw new Error(
-            'Please enter your full name.'
-          );
-        }
-
-        if (password.length < 6) {
-          throw new Error(
-            'Password must be at least 6 characters.'
-          );
-        }
-
         const {
           data,
           error: signUpError,
@@ -268,9 +211,7 @@ export default function Auth() {
           password,
           options: {
             data: {
-              full_name:
-                name.trim(),
-
+              full_name: name.trim(),
               role: 'citizen',
             },
           },
@@ -280,11 +221,18 @@ export default function Auth() {
           throw signUpError;
         }
 
+        // ------------------------------------------------
+        // EMAIL CONFIRMATION DISABLED
+        // ------------------------------------------------
+
         if (data?.session) {
-          window.location.href =
-            '/citizen';
+          window.location.replace('/citizen');
           return;
         }
+
+        // ------------------------------------------------
+        // EMAIL CONFIRMATION ENABLED
+        // ------------------------------------------------
 
         setMessage(
           'Account created! Please check your email to confirm your account.'
@@ -296,9 +244,9 @@ export default function Auth() {
         return;
       }
 
-      // --------------------------------------------------
-      // LOGIN
-      // --------------------------------------------------
+      // ==================================================
+      // EMAIL LOGIN
+      // ==================================================
 
       const {
         data,
@@ -319,23 +267,20 @@ export default function Auth() {
         );
       }
 
-      /*
-       * IMPORTANT:
-       *
-       * Admin role is validated using the
-       * user's Supabase metadata.
-       *
-       * A normal citizen cannot select
-       * Admin and automatically become admin.
-       */
+      const user = data.session.user;
 
-      const user =
-        data.session.user;
+      // ==================================================
+      // GET USER ROLE
+      // ==================================================
 
       const userRole =
-        user?.user_metadata?.role ||
         user?.app_metadata?.role ||
+        user?.user_metadata?.role ||
         'citizen';
+
+      // ==================================================
+      // ADMIN LOGIN
+      // ==================================================
 
       if (role === 'admin') {
         if (userRole !== 'admin') {
@@ -346,14 +291,22 @@ export default function Auth() {
           );
         }
 
-        window.location.href =
-          '/admin';
-
+        window.location.replace('/admin');
         return;
       }
 
-      window.location.href =
-        '/citizen';
+      // ==================================================
+      // CITIZEN LOGIN
+      // ==================================================
+
+      if (userRole === 'admin') {
+        // An admin account can still exist,
+        // but don't allow accidental citizen entry.
+        window.location.replace('/admin');
+        return;
+      }
+
+      window.location.replace('/citizen');
     } catch (err) {
       console.error(
         'Authentication error:',
@@ -370,11 +323,32 @@ export default function Auth() {
   };
 
   // ======================================================
+  // TOGGLE LOGIN / SIGNUP
+  // ======================================================
+
+  const toggleMode = () => {
+    resetMessages();
+
+    if (role === 'admin') {
+      setMode('login');
+      return;
+    }
+
+    setMode(
+      mode === 'login'
+        ? 'signup'
+        : 'login'
+    );
+
+    setPassword('');
+  };
+
+  // ======================================================
   // UI
   // ======================================================
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-slate-950">
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4 py-10">
 
       <div className="w-full max-w-md">
 
@@ -382,12 +356,12 @@ export default function Auth() {
             BRAND
         ================================================== */}
 
-        <div className="text-center mb-7">
+        <div className="text-center mb-8">
 
-          <div className="mx-auto mb-4 w-14 h-14 rounded-2xl bg-teal-600 flex items-center justify-center shadow-lg">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-600 shadow-xl shadow-teal-900/30">
 
             <ShieldCheck
-              size={28}
+              size={32}
               className="text-white"
             />
 
@@ -414,42 +388,45 @@ export default function Auth() {
               ROLE SWITCH
           ================================================== */}
 
-          <div className="grid grid-cols-2 gap-2 p-1 mb-6 rounded-xl bg-slate-800">
+          <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-800 p-1 mb-6">
+
+            {/* CITIZEN */}
 
             <button
               type="button"
               onClick={() =>
                 switchRole('citizen')
               }
-              className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition ${
+              disabled={loading}
+              className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition ${
                 role === 'citizen'
                   ? 'bg-teal-600 text-white'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-
               <User size={16} />
 
               Citizen
-
             </button>
+
+
+            {/* ADMIN */}
 
             <button
               type="button"
               onClick={() =>
                 switchRole('admin')
               }
-              className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition ${
+              disabled={loading}
+              className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition ${
                 role === 'admin'
                   ? 'bg-indigo-600 text-white'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-
               <ShieldCheck size={16} />
 
               Admin
-
             </button>
 
           </div>
@@ -489,384 +466,236 @@ export default function Auth() {
           ================================================== */}
 
           {error && (
-
-            <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
-
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
               {error}
-
             </div>
-
           )}
 
 
           {/* ==================================================
-              SUCCESS
+              SUCCESS MESSAGE
           ================================================== */}
 
           {message && (
-
-            <div className="mb-4 p-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-300 text-sm">
-
+            <div className="mb-4 rounded-xl border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-300">
               {message}
-
             </div>
-
           )}
 
 
           {/* ==================================================
-              SOCIAL LOGIN
-          ================================================== */}
-
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-750 text-white font-semibold text-sm transition disabled:opacity-50"
-          >
-
-            {loading ? (
-              <Loader2
-                size={18}
-                className="animate-spin"
-              />
-            ) : (
-              <Chrome size={18} />
-            )}
-
-            Continue with Google
-
-          </button>
-
-
-          {/* Divider */}
-
-          <div className="flex items-center gap-3 my-5">
-
-            <div className="h-px flex-1 bg-slate-800" />
-
-            <span className="text-xs text-slate-500">
-              OR
-            </span>
-
-            <div className="h-px flex-1 bg-slate-800" />
-
-          </div>
-
-
-          {/* ==================================================
-              AUTH METHOD
-          ================================================== */}
-
-          <div className="grid grid-cols-2 gap-2 mb-5">
-
-            <button
-              type="button"
-              onClick={() => {
-                setAuthMethod('email');
-                setOtpSent(false);
-                resetMessages();
-              }}
-              className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold ${
-                authMethod === 'email'
-                  ? 'bg-slate-700 text-white'
-                  : 'text-slate-400'
-              }`}
-            >
-
-              <Mail size={14} />
-
-              Email
-
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setAuthMethod('phone');
-                resetMessages();
-              }}
-              className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold ${
-                authMethod === 'phone'
-                  ? 'bg-slate-700 text-white'
-                  : 'text-slate-400'
-              }`}
-            >
-
-              <Phone size={14} />
-
-              Phone OTP
-
-            </button>
-
-          </div>
-
-
-          {/* ==================================================
-              PHONE AUTH
-          ================================================== */}
-
-          {authMethod === 'phone' ? (
-
-            <div>
-
-              <label className="block text-sm font-semibold text-slate-300 mb-2">
-                Phone Number
-              </label>
-
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) =>
-                  setPhone(e.target.value)
-                }
-                placeholder="+91 9876543210"
-                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-white outline-none focus:border-teal-500"
-              />
-
-
-              {otpSent && (
-
-                <div className="mt-4">
-
-                  <label className="block text-sm font-semibold text-slate-300 mb-2">
-                    Enter OTP
-                  </label>
-
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={otp}
-                    onChange={(e) =>
-                      setOtp(
-                        e.target.value.replace(
-                          /\D/g,
-                          ''
-                        )
-                      )
-                    }
-                    placeholder="6-digit OTP"
-                    className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-white outline-none focus:border-teal-500"
-                  />
-
-                </div>
-
-              )}
-
-
-              <button
-                type="button"
-                disabled={loading}
-                onClick={
-                  otpSent
-                    ? verifyPhoneOtp
-                    : sendPhoneOtp
-                }
-                className="w-full mt-4 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold transition disabled:opacity-50"
-              >
-
-                {loading
-                  ? 'Please wait...'
-                  : otpSent
-                  ? 'Verify OTP'
-                  : 'Send OTP'}
-
-              </button>
-
-              {otpSent && (
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOtpSent(false);
-                    setOtp('');
-                    resetMessages();
-                  }}
-                  className="w-full mt-2 text-xs text-slate-400 hover:text-white"
-                >
-                  Use a different number
-                </button>
-
-              )}
-
-            </div>
-
-          ) : (
-
-            /* ==================================================
-               EMAIL AUTH
-            ================================================== */
-
-            <form
-              onSubmit={
-                handleEmailSubmit
-              }
-            >
-
-              {mode === 'signup' &&
-                role === 'citizen' && (
-
-                  <div className="mb-4">
-
-                    <label className="block text-sm font-semibold text-slate-300 mb-2">
-                      Full Name
-                    </label>
-
-                    <div className="relative">
-
-                      <User
-                        size={17}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
-                      />
-
-                      <input
-                        type="text"
-                        value={name}
-                        onChange={(e) =>
-                          setName(
-                            e.target.value
-                          )
-                        }
-                        placeholder="Enter your name"
-                        autoComplete="name"
-                        className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-white outline-none focus:border-teal-500"
-                      />
-
-                    </div>
-
-                  </div>
-
-                )}
-
-
-              <div className="mb-4">
-
-                <label className="block text-sm font-semibold text-slate-300 mb-2">
-                  Email
-                </label>
-
-                <div className="relative">
-
-                  <Mail
-                    size={17}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
-                  />
-
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) =>
-                      setEmail(
-                        e.target.value
-                      )
-                    }
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-white outline-none focus:border-teal-500"
-                  />
-
-                </div>
-
-              </div>
-
-
-              <div className="mb-5">
-
-                <label className="block text-sm font-semibold text-slate-300 mb-2">
-                  Password
-                </label>
-
-                <div className="relative">
-
-                  <Lock
-                    size={17}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
-                  />
-
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) =>
-                      setPassword(
-                        e.target.value
-                      )
-                    }
-                    placeholder="••••••••"
-                    autoComplete={
-                      mode === 'login'
-                        ? 'current-password'
-                        : 'new-password'
-                    }
-                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-white outline-none focus:border-teal-500"
-                  />
-
-                </div>
-
-              </div>
-
-
-              <button
-                type="submit"
-                disabled={loading}
-                className={`w-full py-3 rounded-xl text-white font-bold transition disabled:opacity-50 ${
-                  role === 'admin'
-                    ? 'bg-indigo-600 hover:bg-indigo-700'
-                    : 'bg-teal-600 hover:bg-teal-700'
-                }`}
-              >
-
-                {loading
-                  ? 'Please wait...'
-                  : role === 'admin'
-                  ? 'Admin Sign In'
-                  : mode === 'login'
-                  ? 'Sign In'
-                  : 'Create Account'}
-
-              </button>
-
-            </form>
-
-          )}
-
-
-          {/* ==================================================
-              CITIZEN SIGNUP TOGGLE
+              GOOGLE LOGIN
           ================================================== */}
 
           {role === 'citizen' && (
+            <>
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-white px-4 py-3 font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
 
-            <div className="mt-6 text-center text-sm text-slate-400">
+                {loading ? (
+                  <Loader2
+                    size={19}
+                    className="animate-spin"
+                  />
+                ) : (
+                  <Chrome size={19} />
+                )}
 
-              {mode === 'login'
-                ? "Don't have an account?"
-                : 'Already have an account?'}
+                Continue with Google
 
-              {' '}
+              </button>
+
+
+              {/* DIVIDER */}
+
+              <div className="my-6 flex items-center gap-3">
+
+                <div className="h-px flex-1 bg-slate-800" />
+
+                <span className="text-xs font-medium text-slate-500">
+                  OR
+                </span>
+
+                <div className="h-px flex-1 bg-slate-800" />
+
+              </div>
+            </>
+          )}
+
+
+          {/* ==================================================
+              EMAIL FORM
+          ================================================== */}
+
+          <form
+            onSubmit={handleEmailSubmit}
+            className="space-y-4"
+          >
+
+            {/* NAME - CITIZEN SIGNUP ONLY */}
+
+            {role === 'citizen' &&
+              mode === 'signup' && (
+                <div>
+
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Full Name
+                  </label>
+
+                  <div className="relative">
+
+                    <User
+                      size={18}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+                    />
+
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) =>
+                        setName(e.target.value)
+                      }
+                      placeholder="Enter your full name"
+                      disabled={loading}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-800 py-3 pl-10 pr-4 text-white outline-none transition placeholder:text-slate-500 focus:border-teal-500"
+                    />
+
+                  </div>
+
+                </div>
+              )}
+
+
+            {/* EMAIL */}
+
+            <div>
+
+              <label className="mb-2 block text-sm font-medium text-slate-300">
+                Email Address
+              </label>
+
+              <div className="relative">
+
+                <Mail
+                  size={18}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+                />
+
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) =>
+                    setEmail(e.target.value)
+                  }
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  disabled={loading}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800 py-3 pl-10 pr-4 text-white outline-none transition placeholder:text-slate-500 focus:border-teal-500"
+                />
+
+              </div>
+
+            </div>
+
+
+            {/* PASSWORD */}
+
+            <div>
+
+              <label className="mb-2 block text-sm font-medium text-slate-300">
+                Password
+              </label>
+
+              <div className="relative">
+
+                <Lock
+                  size={18}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+                />
+
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) =>
+                    setPassword(e.target.value)
+                  }
+                  placeholder="Enter your password"
+                  autoComplete={
+                    mode === 'signup'
+                      ? 'new-password'
+                      : 'current-password'
+                  }
+                  disabled={loading}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800 py-3 pl-10 pr-4 text-white outline-none transition placeholder:text-slate-500 focus:border-teal-500"
+                />
+
+              </div>
+
+              {mode === 'signup' &&
+                role === 'citizen' && (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Password must be at least 6 characters.
+                  </p>
+                )}
+
+            </div>
+
+
+            {/* SUBMIT */}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                role === 'admin'
+                  ? 'bg-indigo-600 hover:bg-indigo-500'
+                  : 'bg-teal-600 hover:bg-teal-500'
+              }`}
+            >
+
+              {loading && (
+                <Loader2
+                  size={18}
+                  className="animate-spin"
+                />
+              )}
+
+              {role === 'admin'
+                ? 'Sign in as Admin'
+                : mode === 'login'
+                ? 'Sign In'
+                : 'Create Account'}
+
+            </button>
+
+          </form>
+
+
+          {/* ==================================================
+              LOGIN / SIGNUP SWITCH
+          ================================================== */}
+
+          {role === 'citizen' && (
+            <div className="mt-6 text-center">
 
               <button
                 type="button"
-                onClick={() => {
-                  setMode(
-                    mode === 'login'
-                      ? 'signup'
-                      : 'login'
-                  );
-
-                  resetMessages();
-                }}
-                className="text-teal-400 hover:text-teal-300 font-bold"
+                onClick={toggleMode}
+                disabled={loading}
+                className="text-sm font-semibold text-teal-400 hover:text-teal-300"
               >
 
                 {mode === 'login'
-                  ? 'Create one'
-                  : 'Sign in'}
+                  ? "Don't have an account? Create one"
+                  : 'Already have an account? Sign in'}
 
               </button>
 
             </div>
-
           )}
 
 
@@ -875,42 +704,55 @@ export default function Auth() {
           ================================================== */}
 
           {role === 'admin' && (
+            <div className="mt-5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3">
 
-            <div className="mt-5 flex gap-2 p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+              <div className="flex items-start gap-2">
 
-              <ShieldCheck
-                size={16}
-                className="text-indigo-400 shrink-0 mt-0.5"
-              />
+                <ShieldCheck
+                  size={17}
+                  className="mt-0.5 shrink-0 text-indigo-400"
+                />
 
-              <p className="text-[11px] leading-relaxed text-slate-400">
-                Admin access is restricted to authorized
-                municipal accounts. Selecting Admin does not
-                grant administrative privileges.
-              </p>
+                <p className="text-xs leading-5 text-slate-400">
+                  Admin access is restricted to authorized
+                  municipal personnel. Selecting Admin does
+                  not automatically grant admin privileges.
+                </p>
+
+              </div>
 
             </div>
-
           )}
+
+
+          {/* ==================================================
+              FOOTER
+          ================================================== */}
+
+          <div className="mt-6 text-center">
+
+            <p className="text-xs text-slate-600">
+              CivicFix • Smart Civic Governance
+            </p>
+
+          </div>
 
         </div>
 
 
-        {/* Back */}
+        {/* ==================================================
+            BACK
+        ================================================== */}
 
         <button
           type="button"
-          onClick={() => {
-            window.location.href =
-              '/';
-          }}
-          className="flex items-center justify-center gap-2 mx-auto mt-5 text-xs text-slate-500 hover:text-slate-300"
+          onClick={() =>
+            window.history.back()
+          }
+          className="mx-auto mt-5 flex items-center gap-2 text-sm text-slate-500 transition hover:text-slate-300"
         >
-
-          <ArrowLeft size={14} />
-
-          Back to CivicFix
-
+          <ArrowLeft size={16} />
+          Back
         </button>
 
       </div>
