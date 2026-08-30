@@ -12,6 +12,7 @@ import {
   Clock,
   AlertCircle,
   RefreshCw,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 
@@ -230,18 +231,48 @@ export default function MyReports() {
   useEffect(() => {
 
     let channel = null;
+    let cancelled = false;
 
     const setupRealtime = async () => {
 
+      // ----------------------------------------------
+      // INITIAL FETCH
+      // ----------------------------------------------
+
       await fetchIssues();
+
+      if (cancelled) {
+        return;
+      }
+
+
+      // ----------------------------------------------
+      // GET CURRENT USER
+      // ----------------------------------------------
 
       const {
         data: { user },
+        error: userError,
       } = await supabase.auth.getUser();
 
-      if (!user) {
+      if (userError) {
+
+        console.error(
+          'Realtime user lookup error:',
+          userError
+        );
+
         return;
       }
+
+      if (!user || cancelled) {
+        return;
+      }
+
+
+      // ----------------------------------------------
+      // CREATE REALTIME CHANNEL
+      // ----------------------------------------------
 
       channel = supabase
         .channel(
@@ -257,6 +288,10 @@ export default function MyReports() {
           },
           (payload) => {
 
+            if (cancelled) {
+              return;
+            }
+
             console.log(
               'My Reports realtime update:',
               payload
@@ -264,24 +299,47 @@ export default function MyReports() {
 
             fetchIssues();
           }
-        )
-        .subscribe((status) => {
+        );
 
-          console.log(
-            'My Reports realtime status:',
-            status
-          );
 
-        });
+      // ----------------------------------------------
+      // SUBSCRIBE
+      // ----------------------------------------------
+
+      channel.subscribe((status) => {
+
+        if (cancelled) {
+          return;
+        }
+
+        console.log(
+          'My Reports realtime status:',
+          status
+        );
+
+      });
 
     };
 
+
     setupRealtime();
+
+
+    // ----------------------------------------------
+    // CLEANUP
+    // ----------------------------------------------
 
     return () => {
 
+      cancelled = true;
+
       if (channel) {
-        supabase.removeChannel(channel);
+
+        supabase.removeChannel(
+          channel
+        );
+
+        channel = null;
       }
 
     };
@@ -392,7 +450,6 @@ export default function MyReports() {
 
       <div className="flex-1 overflow-y-auto p-6">
 
-
         {/* ==================================================
             EMPTY
         ================================================== */}
@@ -402,10 +459,12 @@ export default function MyReports() {
           <div className="flex flex-col items-center justify-center h-64 text-center">
 
             <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
+
               <AlertCircle
                 size={30}
                 className="text-slate-400"
               />
+
             </div>
 
             <p className="text-slate-500">
@@ -463,7 +522,9 @@ export default function MyReports() {
                   "
                 >
 
-                  {/* HEADER */}
+                  {/* ==================================================
+                      HEADER
+                  ================================================== */}
 
                   <div className="flex items-start justify-between gap-3 mb-2">
 
@@ -485,12 +546,14 @@ export default function MyReports() {
 
                       </div>
 
-                      <h3 className="
-                        mt-1
-                        text-sm
-                        font-semibold
-                        text-slate-800
-                      ">
+                      <h3
+                        className="
+                          mt-1
+                          text-sm
+                          font-semibold
+                          text-slate-800
+                        "
+                      >
                         {issue.description &&
                         issue.description.length > 80
                           ? `${issue.description.slice(0, 80)}…`
@@ -506,17 +569,21 @@ export default function MyReports() {
                   </div>
 
 
-                  {/* META */}
+                  {/* ==================================================
+                      META
+                  ================================================== */}
 
-                  <div className="
-                    flex
-                    items-center
-                    gap-4
-                    text-xs
-                    text-slate-500
-                    mb-3
-                    flex-wrap
-                  ">
+                  <div
+                    className="
+                      flex
+                      items-center
+                      gap-4
+                      text-xs
+                      text-slate-500
+                      mb-3
+                      flex-wrap
+                    "
+                  >
 
                     <span className="flex items-center gap-1">
 
@@ -545,9 +612,11 @@ export default function MyReports() {
 
                       <span>
                         Submitted:{' '}
+
                         {formatDate(
                           submittedDate
                         )}
+
                       </span>
 
                     )}
@@ -555,23 +624,68 @@ export default function MyReports() {
                   </div>
 
 
-                  {/* COORDINATES */}
+                  {/* ==================================================
+                      PHOTO
+                  ================================================== */}
+
+                  {issue.photo_url ? (
+
+                    <div className="mb-4">
+
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 mb-2">
+
+                        <ImageIcon size={13} />
+
+                        Uploaded Photo
+
+                      </div>
+
+                      <div className="relative w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+
+                        <img
+                          src={issue.photo_url}
+                          alt={`Photo for ${issue.category || 'reported issue'}`}
+                          className="
+                            w-full
+                            max-h-64
+                            object-cover
+                            cursor-pointer
+                            hover:opacity-95
+                            transition-opacity
+                          "
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+
+                      </div>
+
+                    </div>
+
+                  ) : null}
+
+
+                  {/* ==================================================
+                      COORDINATES
+                  ================================================== */}
 
                   {issue.latitude != null &&
                     issue.longitude != null && (
 
-                    <div className="
-                      inline-flex
-                      items-center
-                      text-[11px]
-                      text-slate-400
-                      bg-slate-50
-                      border border-slate-100
-                      rounded-lg
-                      px-2
-                      py-1
-                      mb-3
-                    ">
+                    <div
+                      className="
+                        inline-flex
+                        items-center
+                        text-[11px]
+                        text-slate-400
+                        bg-slate-50
+                        border border-slate-100
+                        rounded-lg
+                        px-2
+                        py-1
+                        mb-3
+                      "
+                    >
 
                       📍{' '}
 
@@ -590,7 +704,9 @@ export default function MyReports() {
                   )}
 
 
-                  {/* STATUS TIMELINE */}
+                  {/* ==================================================
+                      STATUS TIMELINE
+                  ================================================== */}
 
                   <StatusTimeline
                     currentStatus={displayStatus}

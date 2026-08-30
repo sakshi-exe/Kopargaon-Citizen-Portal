@@ -265,9 +265,6 @@ function mapSupabaseIssue(issue) {
   const aiPriority =
     getIssuePriority(issue);
 
-  const trust =
-    calculateTrustScore(issue);
-
   return {
     ...issue,
 
@@ -299,15 +296,6 @@ function mapSupabaseIssue(issue) {
 
     aiScore:
       aiPriority?.score || 0,
-
-    trustScore:
-      trust.score,
-
-    trustLabel:
-      trust.label,
-
-    trustFactors:
-      trust.factors,
 
     aiPriorityReason:
       issue.ai_priority_reason ||
@@ -2218,6 +2206,150 @@ function IssueModal({
 
           )}
 
+
+{/* ==========================================
+    AI TRUST / VERIFICATION SCORE
+========================================== */}
+
+<div className="mt-5 p-5 rounded-xl bg-teal-50 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900">
+
+  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
+
+    <div>
+
+      <div className="flex items-center gap-2">
+
+        <Brain
+          size={18}
+          className="text-teal-600 dark:text-teal-400"
+        />
+
+        <span className="text-sm font-bold text-teal-700 dark:text-teal-300">
+          AI Trust / Verification Score
+        </span>
+
+      </div>
+
+      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+        Evidence-based complaint verification
+      </p>
+
+    </div>
+
+    <div className="text-right">
+
+      <div className="text-3xl font-black text-teal-600 dark:text-teal-400">
+
+        {selected?.trustScore ?? issue.trustScore ?? 0}
+
+        <span className="text-sm font-semibold text-slate-400">
+          /100
+        </span>
+
+      </div>
+
+      <span className="inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
+
+        {selected?.trustLabel ??
+          issue.trustLabel ??
+          'NEEDS VERIFICATION'}
+
+      </span>
+
+    </div>
+
+  </div>
+
+
+  {/* TRUST SCORE BAR */}
+
+  <div className="mb-5">
+
+    <div className="flex justify-between text-[10px] font-semibold text-slate-400 mb-1">
+
+      <span>Verification Confidence</span>
+
+      <span>
+        {selected?.trustScore ?? issue.trustScore ?? 0}%
+      </span>
+
+    </div>
+
+    <div className="h-2 bg-white dark:bg-slate-800 rounded-full overflow-hidden">
+
+      <div
+        className="h-full rounded-full bg-teal-500 transition-all"
+        style={{
+          width: `${Math.min(
+            100,
+            Math.max(
+              0,
+              selected?.trustScore ??
+                issue.trustScore ??
+                0
+            )
+          )}%`,
+        }}
+      />
+
+    </div>
+
+  </div>
+
+
+  {/* EVIDENCE FACTORS */}
+
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+
+    {(
+      selected?.trustFactors ??
+      issue.trustFactors ??
+      []
+    ).map((factor, index) => (
+
+      <div
+        key={`${factor.label}-${index}`}
+        className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+      >
+
+        <span className="text-xs text-slate-600 dark:text-slate-300">
+          {factor.label}
+        </span>
+
+        <span
+          className={`text-xs font-bold ${
+            factor.positive
+              ? 'text-green-600 dark:text-green-400'
+              : 'text-slate-400'
+          }`}
+        >
+          {factor.value}
+        </span>
+
+      </div>
+
+    ))}
+
+  </div>
+
+
+  <div className="mt-4 p-3 rounded-lg bg-white/70 dark:bg-slate-900/50">
+
+    <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+
+      <strong className="text-slate-700 dark:text-slate-300">
+        Advisory only:
+      </strong>{' '}
+      This score evaluates available evidence such as
+      photo, location, description quality and reporter
+      information. Final verification remains with municipal
+      officials.
+
+    </p>
+
+  </div>
+
+</div>
 
           {/* ==========================================
               WORKFLOW

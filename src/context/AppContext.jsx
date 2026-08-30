@@ -15,27 +15,30 @@ import { landUseZones } from '../data/landuse.js';
 import { wards } from '../data/wards.js';
 import { transformations } from '../data/transformations.js';
 
+import { saveRecoverySnapshot } from '../lib/recoveryStore.js';
+
+
 // ── Initial State ─────────────────────────────────────────────────────────────
 
 const initialState = {
-  // Role: 'citizen' | 'admin' | 'inspector'
   role: 'citizen',
 
-  // Dark mode
   darkMode: true,
 
-  // Core data
   infrastructure: initialInfra,
+
   projects: initialProjects,
+
   issues: initialIssues,
+
   landUseZones,
+
   wards,
+
   transformations,
 
-  // Global Asset Detail Modal
   selectedAsset: null,
 
-  // Inspection logs
   inspections: [
     {
       id: 'INSP-2026-0818-01',
@@ -51,6 +54,7 @@ const initialState = {
         'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=800&q=80',
       status: 'Verified',
     },
+
     {
       id: 'INSP-2026-0816-02',
       assetId: 'DRAIN-KPG-0138',
@@ -67,7 +71,6 @@ const initialState = {
     },
   ],
 
-  // UI state
   selectedWard: null,
 
   mapLayers: {
@@ -82,9 +85,9 @@ const initialState = {
     landuse: false,
   },
 
-  // Citizen: my submitted issues
   myIssues: [],
 };
+
 
 // ── Convert Supabase issue → App issue ────────────────────────────────────────
 
@@ -100,8 +103,6 @@ function mapSupabaseIssue(row) {
 
     priority: row.priority || 'medium',
 
-    // Convert database status into the status names
-    // already used by the existing UI.
     status:
       row.status === 'pending'
         ? 'Reported'
@@ -133,7 +134,9 @@ function mapSupabaseIssue(row) {
       ? row.created_at.split('T')[0]
       : new Date().toISOString().split('T')[0],
 
-    updatedDate: row.created_at
+    updatedDate: row.updated_at
+      ? row.updated_at.split('T')[0]
+      : row.created_at
       ? row.created_at.split('T')[0]
       : new Date().toISOString().split('T')[0],
 
@@ -142,6 +145,7 @@ function mapSupabaseIssue(row) {
     photo: row.photo_url || null,
   };
 }
+
 
 // ── Convert UI status → Supabase status ───────────────────────────────────────
 
@@ -159,25 +163,32 @@ function mapStatusToDatabase(status) {
   return statusMap[status] || status;
 }
 
+
 // ── Reducer ───────────────────────────────────────────────────────────────────
 
 function appReducer(state, action) {
   switch (action.type) {
-    // Role switching
+
+    // ── Role switching ───────────────────────────────────────────────────────
+
     case 'SET_ROLE':
       return {
         ...state,
         role: action.payload,
       };
 
-    // Dark mode
+
+    // ── Dark mode ────────────────────────────────────────────────────────────
+
     case 'TOGGLE_DARK_MODE':
       return {
         ...state,
         darkMode: !state.darkMode,
       };
 
-    // Asset Detail Modal
+
+    // ── Asset Detail Modal ───────────────────────────────────────────────────
+
     case 'OPEN_ASSET_MODAL':
       return {
         ...state,
@@ -190,13 +201,16 @@ function appReducer(state, action) {
         selectedAsset: null,
       };
 
-    // Map layer toggles
+
+    // ── Map layer toggles ────────────────────────────────────────────────────
+
     case 'TOGGLE_LAYER':
       return {
         ...state,
         mapLayers: {
           ...state.mapLayers,
-          [action.payload]: !state.mapLayers[action.payload],
+          [action.payload]:
+            !state.mapLayers[action.payload],
         },
       };
 
@@ -206,12 +220,15 @@ function appReducer(state, action) {
         mapLayers: action.payload,
       };
 
-    // Ward selection
+
+    // ── Ward selection ───────────────────────────────────────────────────────
+
     case 'SELECT_WARD':
       return {
         ...state,
         selectedWard: action.payload,
       };
+
 
     // ── Load issues from Supabase ─────────────────────────────────────────────
 
@@ -221,16 +238,23 @@ function appReducer(state, action) {
         issues: action.payload,
       };
 
-    // ── Citizen: submit a new issue ───────────────────────────────────────────
+
+    // ── Citizen: submit new issue ────────────────────────────────────────────
 
     case 'SUBMIT_ISSUE': {
       const newIssue = {
         ...action.payload,
-        id: action.payload.id || generateIssueId(),
+
+        id:
+          action.payload.id ||
+          generateIssueId(),
+
         status: 'Reported',
+
         submittedDate:
           action.payload.submittedDate ||
           new Date().toISOString().split('T')[0],
+
         updatedDate:
           action.payload.updatedDate ||
           new Date().toISOString().split('T')[0],
@@ -239,147 +263,201 @@ function appReducer(state, action) {
       return {
         ...state,
 
-        issues: [newIssue, ...state.issues],
+        issues: [
+          newIssue,
+          ...state.issues,
+        ],
 
-        myIssues: [newIssue, ...state.myIssues],
+        myIssues: [
+          newIssue,
+          ...state.myIssues,
+        ],
       };
     }
+
 
     // ── Admin: update issue status ───────────────────────────────────────────
 
     case 'UPDATE_ISSUE_STATUS': {
-      const { issueId, newStatus } = action.payload;
 
-      const updatedDate = new Date()
-        .toISOString()
-        .split('T')[0];
+      const {
+        issueId,
+        newStatus,
+      } = action.payload;
+
+      const updatedDate =
+        new Date()
+          .toISOString()
+          .split('T')[0];
 
       return {
         ...state,
 
-        issues: state.issues.map((issue) =>
-          issue.id === issueId
-            ? {
-                ...issue,
-                status: newStatus,
-                updatedDate,
-              }
-            : issue
+        issues: state.issues.map(
+          (issue) =>
+            issue.id === issueId
+              ? {
+                  ...issue,
+                  status: newStatus,
+                  updatedDate,
+                }
+              : issue
         ),
 
-        myIssues: state.myIssues.map((issue) =>
-          issue.id === issueId
-            ? {
-                ...issue,
-                status: newStatus,
-                updatedDate,
-              }
-            : issue
+        myIssues: state.myIssues.map(
+          (issue) =>
+            issue.id === issueId
+              ? {
+                  ...issue,
+                  status: newStatus,
+                  updatedDate,
+                }
+              : issue
         ),
       };
     }
 
-    // ── Admin: update project ─────────────────────────────────────────────────
+
+    // ── Admin: update project ────────────────────────────────────────────────
 
     case 'UPDATE_PROJECT': {
-      const { projectId, updates } = action.payload;
+
+      const {
+        projectId,
+        updates,
+      } = action.payload;
 
       return {
         ...state,
 
-        projects: state.projects.map((project) =>
-          project.id === projectId
-            ? {
-                ...project,
-                ...updates,
-              }
-            : project
+        projects: state.projects.map(
+          (project) =>
+            project.id === projectId
+              ? {
+                  ...project,
+                  ...updates,
+                }
+              : project
         ),
       };
     }
+
 
     // ── Admin: update infrastructure ─────────────────────────────────────────
 
     case 'UPDATE_INFRASTRUCTURE': {
-      const { infraId, updates } = action.payload;
+
+      const {
+        infraId,
+        updates,
+      } = action.payload;
 
       return {
         ...state,
 
-        infrastructure: state.infrastructure.map((item) =>
-          item.id === infraId
-            ? {
-                ...item,
-                ...updates,
-              }
-            : item
-        ),
+        infrastructure:
+          state.infrastructure.map(
+            (item) =>
+              item.id === infraId
+                ? {
+                    ...item,
+                    ...updates,
+                  }
+                : item
+          ),
       };
     }
+
 
     // ── Field Worker: Submit Field Inspection ────────────────────────────────
 
     case 'SUBMIT_INSPECTION': {
+
       const inspection = {
         ...action.payload,
 
-        id: `INSP-${Date.now().toString().slice(-6)}`,
+        id:
+          `INSP-${Date.now()
+            .toString()
+            .slice(-6)}`,
 
-        date: new Date().toISOString().split('T')[0],
+        date:
+          new Date()
+            .toISOString()
+            .split('T')[0],
 
         status: 'Verified',
       };
 
-      const updatedInfra = state.infrastructure.map((item) => {
-        if (item.id === action.payload.assetId) {
-          const conditionScore =
-            action.payload.conditionScore ||
-            (action.payload.condition === 'Good'
-              ? 8
-              : action.payload.condition === 'Moderate'
-              ? 6
-              : action.payload.condition === 'Poor'
-              ? 3
-              : 2);
+      const updatedInfra =
+        state.infrastructure.map(
+          (item) => {
 
-          const newMaintenance =
-            conditionScore >= 7
-              ? 'Up-to-date'
-              : conditionScore >= 5
-              ? 'Due'
-              : 'Overdue';
+            if (
+              item.id ===
+              action.payload.assetId
+            ) {
 
-          const newHistory = [
-            {
-              date: inspection.date,
-              action: `Field inspection by ${
-                action.payload.inspectorName || 'Inspection Team'
-              }: ${
-                action.payload.remarks || 'Condition logged'
-              }`,
-            },
+              const conditionScore =
+                action.payload.conditionScore ||
+                (
+                  action.payload.condition === 'Good'
+                    ? 8
+                    : action.payload.condition === 'Moderate'
+                    ? 6
+                    : action.payload.condition === 'Poor'
+                    ? 3
+                    : 2
+                );
 
-            ...(item.maintenanceHistory || []),
-          ];
+              const newMaintenance =
+                conditionScore >= 7
+                  ? 'Up-to-date'
+                  : conditionScore >= 5
+                  ? 'Due'
+                  : 'Overdue';
 
-          return {
-            ...item,
+              const newHistory = [
+                {
+                  date: inspection.date,
 
-            condition: conditionScore,
+                  action:
+                    `Field inspection by ${
+                      action.payload.inspectorName ||
+                      'Inspection Team'
+                    }: ${
+                      action.payload.remarks ||
+                      'Condition logged'
+                    }`,
+                },
 
-            lastInspection: inspection.date,
+                ...(item.maintenanceHistory || []),
+              ];
 
-            maintenanceStatus: newMaintenance,
+              return {
+                ...item,
 
-            maintenanceHistory: newHistory,
+                condition:
+                  conditionScore,
 
-            verifiedBy:
-              action.payload.inspectorName || item.verifiedBy,
-          };
-        }
+                lastInspection:
+                  inspection.date,
 
-        return item;
-      });
+                maintenanceStatus:
+                  newMaintenance,
+
+                maintenanceHistory:
+                  newHistory,
+
+                verifiedBy:
+                  action.payload.inspectorName ||
+                  item.verifiedBy,
+              };
+            }
+
+            return item;
+          }
+        );
 
       return {
         ...state,
@@ -389,152 +467,266 @@ function appReducer(state, action) {
           ...state.inspections,
         ],
 
-        infrastructure: updatedInfra,
+        infrastructure:
+          updatedInfra,
       };
     }
+
 
     default:
       return state;
   }
 }
 
+
 // ── Context ───────────────────────────────────────────────────────────────────
 
-const AppContext = createContext(null);
+const AppContext =
+  createContext(null);
+
 
 // ── Provider ─────────────────────────────────────────────────────────────────
 
-export function AppProvider({ children }) {
-  const [state, dispatch] = useReducer(
+export function AppProvider({
+  children,
+}) {
+
+  const [
+    state,
+    dispatch,
+  ] = useReducer(
     appReducer,
     initialState
   );
 
-  // ── Load real citizen issues from Supabase ─────────────────────────────────
 
-  const loadIssues = useCallback(async () => {
+  // ───────────────────────────────────────────────────────────────────────────
+  // RECOVERY SNAPSHOT
+  // Automatically save latest application state locally.
+  // ───────────────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+
     try {
-      const { data, error } = await supabase
-        .from('issues')
-        .select('*')
-        .order('created_at', {
-          ascending: false,
-        });
 
-      if (error) {
-        console.error(
-          'Failed to load issues from Supabase:',
-          error
-        );
-        return;
-      }
-
-      const mappedIssues = (data || []).map(
-        mapSupabaseIssue
-      );
-
-      dispatch({
-        type: 'SET_ISSUES',
-        payload: mappedIssues,
-      });
+      saveRecoverySnapshot(state);
 
       console.log(
-        'Issues loaded from Supabase:',
-        mappedIssues
+        'Recovery snapshot saved:',
+        new Date().toISOString()
       );
+
     } catch (error) {
+
       console.error(
-        'Unexpected error loading issues:',
+        'Recovery snapshot failed:',
         error
       );
+
     }
-  }, []);
 
-  // Load issues when application starts
-  useEffect(() => {
-    loadIssues();
-  }, [loadIssues]);
+  }, [state]);
 
-  // ── Sync dark mode ─────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    const html = document.documentElement;
+  // ───────────────────────────────────────────────────────────────────────────
+  // LOAD ISSUES FROM SUPABASE
+  // ───────────────────────────────────────────────────────────────────────────
 
-    if (state.darkMode) {
-      html.classList.add('dark');
-    } else {
-      html.classList.remove('dark');
-    }
-  }, [state.darkMode]);
+  const loadIssues =
+    useCallback(async () => {
 
-  // ── Supabase-aware dispatch ────────────────────────────────────────────────
+      try {
 
-  const appDispatch = useCallback(
-    async (action) => {
-      // Admin status update
-      if (action.type === 'UPDATE_ISSUE_STATUS') {
-        const { issueId, newStatus } = action.payload;
-
-        try {
-          const databaseStatus =
-            mapStatusToDatabase(newStatus);
-
-          const { error } = await supabase
-            .from('issues')
-            .update({
-              status: databaseStatus,
-            })
-            .eq('id', issueId);
-
-          if (error) {
-            console.error(
-              'Failed to update issue status in Supabase:',
-              error
-            );
-
-            alert(
-              `Failed to update issue: ${error.message}`
-            );
-
-            return;
-          }
-
-          console.log(
-            'Issue status updated in Supabase:',
-            issueId,
-            databaseStatus
+        const {
+          data,
+          error,
+        } = await supabase
+          .from('issues')
+          .select('*')
+          .order(
+            'created_at',
+            {
+              ascending: false,
+            }
           );
 
-          // Only update UI after Supabase succeeds
-          dispatch(action);
+        if (error) {
 
-          return;
-        } catch (error) {
           console.error(
-            'Unexpected status update error:',
+            'Failed to load issues from Supabase:',
             error
-          );
-
-          alert(
-            'Something went wrong while updating the issue.'
           );
 
           return;
         }
+
+        const mappedIssues =
+          (data || []).map(
+            mapSupabaseIssue
+          );
+
+        dispatch({
+          type: 'SET_ISSUES',
+          payload: mappedIssues,
+        });
+
+        console.log(
+          'Issues loaded from Supabase:',
+          mappedIssues
+        );
+
+      } catch (error) {
+
+        console.error(
+          'Unexpected error loading issues:',
+          error
+        );
+
       }
 
-      // Normal local actions
-      dispatch(action);
-    },
-    []
-  );
+    }, []);
+
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // LOAD ISSUES WHEN APPLICATION STARTS
+  // ───────────────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+
+    loadIssues();
+
+  }, [loadIssues]);
+
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // SYNC DARK MODE
+  // ───────────────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+
+    const html =
+      document.documentElement;
+
+    if (state.darkMode) {
+
+      html.classList.add('dark');
+
+    } else {
+
+      html.classList.remove('dark');
+
+    }
+
+  }, [state.darkMode]);
+
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // SUPABASE-AWARE DISPATCH
+  // ───────────────────────────────────────────────────────────────────────────
+
+  const appDispatch =
+    useCallback(
+      async (action) => {
+
+        // ─────────────────────────────────────────────────────────────────────
+        // ADMIN STATUS UPDATE
+        // ─────────────────────────────────────────────────────────────────────
+
+        if (
+          action.type ===
+          'UPDATE_ISSUE_STATUS'
+        ) {
+
+          const {
+            issueId,
+            newStatus,
+          } = action.payload;
+
+          try {
+
+            const databaseStatus =
+              mapStatusToDatabase(
+                newStatus
+              );
+
+            const {
+              error,
+            } = await supabase
+              .from('issues')
+              .update({
+                status:
+                  databaseStatus,
+              })
+              .eq(
+                'id',
+                issueId
+              );
+
+            if (error) {
+
+              console.error(
+                'Failed to update issue status in Supabase:',
+                error
+              );
+
+              alert(
+                `Failed to update issue: ${error.message}`
+              );
+
+              return;
+            }
+
+            console.log(
+              'Issue status updated in Supabase:',
+              issueId,
+              databaseStatus
+            );
+
+            dispatch(action);
+
+            return;
+
+          } catch (error) {
+
+            console.error(
+              'Unexpected status update error:',
+              error
+            );
+
+            alert(
+              'Something went wrong while updating the issue.'
+            );
+
+            return;
+          }
+        }
+
+
+        // ─────────────────────────────────────────────────────────────────────
+        // NORMAL LOCAL ACTIONS
+        // ─────────────────────────────────────────────────────────────────────
+
+        dispatch(action);
+
+      },
+      []
+    );
+
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // PROVIDER
+  // ───────────────────────────────────────────────────────────────────────────
 
   return (
     <AppContext.Provider
       value={{
         state,
-        dispatch: appDispatch,
-        reloadIssues: loadIssues,
+
+        dispatch:
+          appDispatch,
+
+        reloadIssues:
+          loadIssues,
       }}
     >
       {children}
@@ -542,12 +734,16 @@ export function AppProvider({ children }) {
   );
 }
 
+
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useApp() {
-  const ctx = useContext(AppContext);
+
+  const ctx =
+    useContext(AppContext);
 
   if (!ctx) {
+
     throw new Error(
       'useApp must be used within AppProvider'
     );
@@ -556,10 +752,13 @@ export function useApp() {
   return ctx;
 }
 
+
 // ── Derived selectors ─────────────────────────────────────────────────────────
 
 export function useAnalytics() {
-  const { state } = useApp();
+
+  const { state } =
+    useApp();
 
   const {
     infrastructure,
@@ -568,95 +767,219 @@ export function useAnalytics() {
     wards,
   } = state;
 
+
+  // ───────────────────────────────────────────────────────────────────────────
   // Infrastructure stats
+  // ───────────────────────────────────────────────────────────────────────────
+
   const infraByType = {};
   const infraByWard = {};
 
-  infrastructure.forEach((item) => {
-    infraByType[item.type] =
-      (infraByType[item.type] || 0) + 1;
+  infrastructure.forEach(
+    (item) => {
 
-    infraByWard[item.wardId] =
-      (infraByWard[item.wardId] || 0) + 1;
-  });
+      infraByType[item.type] =
+        (infraByType[item.type] || 0) + 1;
+
+      infraByWard[item.wardId] =
+        (infraByWard[item.wardId] || 0) + 1;
+
+    }
+  );
+
 
   const conditionDist = {
+
     'Excellent (8-10)': 0,
+
     'Good (6-7)': 0,
+
     'Fair (5)': 0,
+
     'Poor (3-4)': 0,
+
     'Critical (1-2)': 0,
   };
 
-  infrastructure.forEach((item) => {
-    if (item.condition >= 8) {
-      conditionDist['Excellent (8-10)']++;
-    } else if (item.condition >= 6) {
-      conditionDist['Good (6-7)']++;
-    } else if (item.condition === 5) {
-      conditionDist['Fair (5)']++;
-    } else if (item.condition >= 3) {
-      conditionDist['Poor (3-4)']++;
-    } else {
-      conditionDist['Critical (1-2)']++;
-    }
-  });
 
+  infrastructure.forEach(
+    (item) => {
+
+      if (
+        item.condition >= 8
+      ) {
+
+        conditionDist[
+          'Excellent (8-10)'
+        ]++;
+
+      } else if (
+        item.condition >= 6
+      ) {
+
+        conditionDist[
+          'Good (6-7)'
+        ]++;
+
+      } else if (
+        item.condition === 5
+      ) {
+
+        conditionDist[
+          'Fair (5)'
+        ]++;
+
+      } else if (
+        item.condition >= 3
+      ) {
+
+        conditionDist[
+          'Poor (3-4)'
+        ]++;
+
+      } else {
+
+        conditionDist[
+          'Critical (1-2)'
+        ]++;
+
+      }
+
+    }
+  );
+
+
+  // ───────────────────────────────────────────────────────────────────────────
   // Project stats
+  // ───────────────────────────────────────────────────────────────────────────
+
   const projectsByStatus = {};
   const projectsByCategory = {};
 
   let totalBudget = 0;
   let totalSpent = 0;
 
-  projects.forEach((project) => {
-    projectsByStatus[project.status] =
-      (projectsByStatus[project.status] || 0) + 1;
+  projects.forEach(
+    (project) => {
 
-    projectsByCategory[project.category] =
-      (projectsByCategory[project.category] || 0) + 1;
+      projectsByStatus[
+        project.status
+      ] =
+        (
+          projectsByStatus[
+            project.status
+          ] || 0
+        ) + 1;
 
-    totalBudget += project.budget;
-    totalSpent += project.spent;
-  });
 
+      projectsByCategory[
+        project.category
+      ] =
+        (
+          projectsByCategory[
+            project.category
+          ] || 0
+        ) + 1;
+
+
+      totalBudget +=
+        project.budget;
+
+      totalSpent +=
+        project.spent;
+
+    }
+  );
+
+
+  // ───────────────────────────────────────────────────────────────────────────
   // Issue stats
+  // ───────────────────────────────────────────────────────────────────────────
+
   const issuesByCategory = {};
   const issuesByStatus = {};
   const issuesByWard = {};
 
-  issues.forEach((issue) => {
-    issuesByCategory[issue.category] =
-      (issuesByCategory[issue.category] || 0) + 1;
+  issues.forEach(
+    (issue) => {
 
-    issuesByStatus[issue.status] =
-      (issuesByStatus[issue.status] || 0) + 1;
+      issuesByCategory[
+        issue.category
+      ] =
+        (
+          issuesByCategory[
+            issue.category
+          ] || 0
+        ) + 1;
 
-    issuesByWard[issue.wardId] =
-      (issuesByWard[issue.wardId] || 0) + 1;
-  });
+
+      issuesByStatus[
+        issue.status
+      ] =
+        (
+          issuesByStatus[
+            issue.status
+          ] || 0
+        ) + 1;
+
+
+      issuesByWard[
+        issue.wardId
+      ] =
+        (
+          issuesByWard[
+            issue.wardId
+          ] || 0
+        ) + 1;
+
+    }
+  );
+
 
   const resolvedCount =
-    (issuesByStatus['Resolved'] || 0) +
-    (issuesByStatus['Verified'] || 0) +
-    (issuesByStatus['Closed'] || 0);
+    (
+      issuesByStatus[
+        'Resolved'
+      ] || 0
+    ) +
+
+    (
+      issuesByStatus[
+        'Verified'
+      ] || 0
+    ) +
+
+    (
+      issuesByStatus[
+        'Closed'
+      ] || 0
+    );
+
 
   const unresolvedCount =
-    issues.length - resolvedCount;
+    issues.length -
+    resolvedCount;
+
 
   return {
+
     infrastructure: {
-      total: infrastructure.length,
 
-      byType: infraByType,
+      total:
+        infrastructure.length,
 
-      byWard: infraByWard,
+      byType:
+        infraByType,
+
+      byWard:
+        infraByWard,
 
       conditionDist,
 
       criticalCount:
         infrastructure.filter(
-          (item) => item.condition <= 4
+          (item) =>
+            item.condition <= 4
         ).length,
 
       avgCondition:
@@ -664,43 +987,69 @@ export function useAnalytics() {
           ? (
               infrastructure.reduce(
                 (sum, item) =>
-                  sum + item.condition,
+                  sum +
+                  item.condition,
                 0
-              ) / infrastructure.length
+              ) /
+              infrastructure.length
             ).toFixed(1)
           : '0.0',
     },
 
+
     projects: {
-      total: projects.length,
 
-      byStatus: projectsByStatus,
+      total:
+        projects.length,
 
-      byCategory: projectsByCategory,
+      byStatus:
+        projectsByStatus,
+
+      byCategory:
+        projectsByCategory,
 
       totalBudget,
 
       totalSpent,
 
       activeCount:
-        (projectsByStatus['In Progress'] || 0) +
-        (projectsByStatus['Approved'] || 0),
+        (
+          projectsByStatus[
+            'In Progress'
+          ] || 0
+        ) +
+
+        (
+          projectsByStatus[
+            'Approved'
+          ] || 0
+        ),
 
       completedCount:
-        projectsByStatus['Completed'] || 0,
+        projectsByStatus[
+          'Completed'
+        ] || 0,
 
       delayedCount:
-        projectsByStatus['Delayed'] || 0,
+        projectsByStatus[
+          'Delayed'
+        ] || 0,
     },
 
+
     issues: {
-      total: issues.length,
 
-      byCategory: issuesByCategory,
+      total:
+        issues.length,
 
-      byStatus: issuesByStatus,
+      byCategory:
+        issuesByCategory,
 
-      byWard: issuesByWard,
+      byStatus:
+        issuesByStatus,
+
+      byWard:
+        issuesByWard,
 
       resolvedCount,
 
@@ -709,25 +1058,39 @@ export function useAnalytics() {
       resolutionRate:
         issues.length > 0
           ? Math.round(
-              (resolvedCount / issues.length) * 100
+              (
+                resolvedCount /
+                issues.length
+              ) * 100
             )
           : 0,
     },
 
-    wards: wards.map((ward) => ({
-      ...ward,
 
-      infraCount:
-        infraByWard[ward.id] || 0,
+    wards:
+      wards.map(
+        (ward) => ({
 
-      issueCount:
-        issuesByWard[ward.id] || 0,
+          ...ward,
 
-      projectCount:
-        projects.filter(
-          (project) =>
-            project.wardId === ward.id
-        ).length,
-    })),
+          infraCount:
+            infraByWard[
+              ward.id
+            ] || 0,
+
+          issueCount:
+            issuesByWard[
+              ward.id
+            ] || 0,
+
+          projectCount:
+            projects.filter(
+              (project) =>
+                project.wardId ===
+                ward.id
+            ).length,
+
+        })
+      ),
   };
 }

@@ -1,15 +1,19 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+
 import {
   MapContainer,
   TileLayer,
   useMapEvents,
 } from 'react-leaflet';
+
 import L from 'leaflet';
 
 import { useApp } from '../../context/AppContext.jsx';
+
 import Header from '../../components/ui/Header.jsx';
 
 import { ISSUE_CATEGORIES } from '../../data/issues.js';
+
 import {
   wards,
   KOPARGAON_CENTER,
@@ -26,8 +30,16 @@ import { supabase } from '../../lib/supabase.js';
 
 const CITY_CENTER = KOPARGAON_CENTER;
 
+// ======================================================
+// REPORT ISSUE
+// ======================================================
+
 export default function ReportIssue() {
   const { dispatch } = useApp();
+
+  // ==================================================
+  // FORM STATE
+  // ==================================================
 
   const [form, setForm] = useState({
     category: '',
@@ -39,44 +51,84 @@ export default function ReportIssue() {
   });
 
   const [pickedLoc, setPickedLoc] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(null);
-  const [submitted, setSubmitted] = useState(false);
-  const [errors, setErrors] = useState({});
 
-  // --------------------------------------------------
-  // PHOTO
-  // --------------------------------------------------
+  const [photoPreview, setPhotoPreview] =
+    useState(null);
+
+  const [submitted, setSubmitted] =
+    useState(false);
+
+  const [errors, setErrors] =
+    useState({});
+
+  const [uploading, setUploading] =
+    useState(false);
+
+  // ==================================================
+  // PHOTO SELECTION
+  // ==================================================
 
   const handlePhoto = (e) => {
     const file = e.target.files?.[0];
 
-    if (!file) return;
+    if (!file) {
+      return;
+    }
+
+    // --------------------------------------------------
+    // CHECK IMAGE TYPE
+    // --------------------------------------------------
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      return;
+    }
+
+    // --------------------------------------------------
+    // MAX 5 MB
+    // --------------------------------------------------
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size must be less than 5 MB.');
+      return;
+    }
+
+    // --------------------------------------------------
+    // SAVE FILE
+    // --------------------------------------------------
 
     setForm((f) => ({
       ...f,
       photo: file,
     }));
 
+    // --------------------------------------------------
+    // PREVIEW
+    // --------------------------------------------------
+
     const reader = new FileReader();
 
-    reader.onload = (ev) => {
-      setPhotoPreview(ev.target.result);
+    reader.onload = (event) => {
+      setPhotoPreview(event.target.result);
     };
 
     reader.readAsDataURL(file);
   };
 
-  // --------------------------------------------------
+  // ==================================================
   // VALIDATION
-  // --------------------------------------------------
+  // ==================================================
 
   const validate = () => {
     const errs = {};
 
+    // CATEGORY
     if (!form.category) {
-      errs.category = 'Please select a category';
+      errs.category =
+        'Please select a category';
     }
 
+    // DESCRIPTION
     if (
       !form.description ||
       form.description.trim().length < 10
@@ -85,16 +137,19 @@ export default function ReportIssue() {
         'Please provide a description (min 10 chars)';
     }
 
+    // WARD
     if (!form.wardId) {
       errs.wardId =
         'Please select your ward';
     }
 
+    // LOCATION
     if (!pickedLoc) {
       errs.loc =
         'Please click on the map to select a location';
     }
 
+    // CITIZEN NAME
     if (
       !form.isAnonymous &&
       !form.citizenName.trim()
@@ -106,9 +161,9 @@ export default function ReportIssue() {
     return errs;
   };
 
-  // --------------------------------------------------
+  // ==================================================
   // GET WARD NAME
-  // --------------------------------------------------
+  // ==================================================
 
   const getWardName = () => {
     const selectedWard = wards.find(
@@ -123,14 +178,133 @@ export default function ReportIssue() {
     );
   };
 
-  // --------------------------------------------------
+  // ==================================================
+  // UPLOAD PHOTO TO SUPABASE
+  // ==================================================
+
+  const uploadPhoto = async (
+    file,
+    userId
+  ) => {
+    if (!file) {
+      return null;
+    }
+
+    try {
+      // ------------------------------------------------
+      // FILE EXTENSION
+      // ------------------------------------------------
+
+      const fileExtension =
+        file.name
+          .split('.')
+          .pop()
+          ?.toLowerCase() || 'jpg';
+
+      // ------------------------------------------------
+      // UNIQUE FILE NAME
+      // ------------------------------------------------
+
+      const fileName =
+        `${crypto.randomUUID()}.${fileExtension}`;
+
+      // ------------------------------------------------
+      // FILE PATH
+      // ------------------------------------------------
+
+      const filePath =
+        `${userId}/${fileName}`;
+
+      console.log(
+        'Uploading issue photo:',
+        filePath
+      );
+
+      // =================================================
+      // IMPORTANT:
+      // YOUR SUPABASE BUCKET IS "issue-images"
+      // =================================================
+
+      const {
+        error: uploadError,
+      } = await supabase.storage
+        .from('issue-images')
+        .upload(
+          filePath,
+          file,
+          {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type,
+          }
+        );
+
+      // ------------------------------------------------
+      // UPLOAD ERROR
+      // ------------------------------------------------
+
+      if (uploadError) {
+        console.error(
+          'PHOTO UPLOAD ERROR:',
+          uploadError
+        );
+
+        throw uploadError;
+      }
+
+      console.log(
+        'Photo uploaded successfully.'
+      );
+
+      // ------------------------------------------------
+      // GET PUBLIC URL
+      // ------------------------------------------------
+
+      const {
+        data: publicUrlData,
+      } = supabase.storage
+        .from('issue-images')
+        .getPublicUrl(filePath);
+
+      const publicUrl =
+        publicUrlData?.publicUrl;
+
+      if (!publicUrl) {
+        throw new Error(
+          'Could not generate photo URL.'
+        );
+      }
+
+      console.log(
+        'Photo public URL:',
+        publicUrl
+      );
+
+      return publicUrl;
+
+    } catch (error) {
+      console.error(
+        'Photo upload failed:',
+        error
+      );
+
+      throw error;
+    }
+  };
+
+  // ==================================================
   // SUBMIT REPORT
-  // --------------------------------------------------
+  // ==================================================
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const validationErrors = validate();
+    // --------------------------------------------------
+    // VALIDATE
+    // --------------------------------------------------
+
+    const validationErrors =
+      validate();
 
     if (
       Object.keys(validationErrors).length > 0
@@ -140,16 +314,22 @@ export default function ReportIssue() {
     }
 
     setErrors({});
+    setUploading(true);
 
     try {
-      // --------------------------------------------------
-      // GET CURRENT LOGGED-IN USER
-      // --------------------------------------------------
+      // =================================================
+      // GET CURRENT USER
+      // =================================================
 
       const {
         data: { user },
         error: userError,
-      } = await supabase.auth.getUser();
+      } =
+        await supabase.auth.getUser();
+
+      // --------------------------------------------------
+      // AUTH ERROR
+      // --------------------------------------------------
 
       if (userError) {
         console.error(
@@ -158,17 +338,25 @@ export default function ReportIssue() {
         );
 
         alert(
-          `Authentication error:\n\n${userError.message}`
+          `Authentication error:
+
+${userError.message}`
         );
 
+        setUploading(false);
         return;
       }
+
+      // --------------------------------------------------
+      // USER NOT LOGGED IN
+      // --------------------------------------------------
 
       if (!user) {
         alert(
           'Please sign in before submitting a report.'
         );
 
+        setUploading(false);
         return;
       }
 
@@ -177,11 +365,16 @@ export default function ReportIssue() {
         user.id
       );
 
-      // --------------------------------------------------
-      // PREPARE DATA
-      // --------------------------------------------------
+      // =================================================
+      // PREPARE ISSUE DATA
+      // =================================================
 
-      const wardName = getWardName();
+      const wardName =
+        getWardName();
+
+      // --------------------------------------------------
+      // CREATE TITLE
+      // --------------------------------------------------
 
       const title =
         form.description.trim().length > 60
@@ -190,14 +383,45 @@ export default function ReportIssue() {
               .slice(0, 60)}…`
           : form.description.trim();
 
+      // --------------------------------------------------
+      // CITIZEN NAME
+      // --------------------------------------------------
+
       const citizenName =
         form.isAnonymous
           ? 'Anonymous'
           : form.citizenName.trim();
 
-      // --------------------------------------------------
-      // INSERT INTO SUPABASE
-      // --------------------------------------------------
+      // =================================================
+      // UPLOAD PHOTO
+      // =================================================
+
+      let photoUrl = null;
+
+      if (form.photo) {
+        console.log(
+          'Starting photo upload...'
+        );
+
+        photoUrl =
+          await uploadPhoto(
+            form.photo,
+            user.id
+          );
+
+        console.log(
+          'Uploaded photo URL:',
+          photoUrl
+        );
+      }
+
+      // =================================================
+      // INSERT ISSUE INTO SUPABASE
+      // =================================================
+
+      console.log(
+        'Saving issue to Supabase...'
+      );
 
       const {
         data,
@@ -206,7 +430,11 @@ export default function ReportIssue() {
         .from('issues')
         .insert([
           {
-            title,
+            // ------------------------------------------
+            // BASIC INFO
+            // ------------------------------------------
+
+            title: title,
 
             description:
               form.description.trim(),
@@ -220,11 +448,12 @@ export default function ReportIssue() {
             status:
               'pending',
 
+            // ------------------------------------------
+            // LOCATION
+            // ------------------------------------------
+
             location:
               wardName,
-
-            citizen_name:
-              citizenName,
 
             latitude:
               pickedLoc[0],
@@ -232,18 +461,30 @@ export default function ReportIssue() {
             longitude:
               pickedLoc[1],
 
-            // IMPORTANT:
-            // connect report to logged-in user
+            // ------------------------------------------
+            // CITIZEN
+            // ------------------------------------------
+
+            citizen_name:
+              citizenName,
+
             user_id:
               user.id,
+
+            // ------------------------------------------
+            // PHOTO
+            // ------------------------------------------
+
+            photo_url:
+              photoUrl,
           },
         ])
         .select()
         .single();
 
-      // --------------------------------------------------
-      // SUPABASE ERROR
-      // --------------------------------------------------
+      // =================================================
+      // DATABASE ERROR
+      // =================================================
 
       if (error) {
         console.error(
@@ -256,32 +497,38 @@ export default function ReportIssue() {
         );
 
         alert(
-          `Failed to submit report:\n\n${
-            error.message
-          }\n\nDetails: ${
-            error.details ||
-            'None'
-          }\n\nHint: ${
-            error.hint ||
-            'None'
-          }`
+          `Failed to submit report:
+
+${error.message}
+
+Details:
+${error.details || 'None'}
+
+Hint:
+${error.hint || 'None'}`
         );
 
+        setUploading(false);
         return;
       }
 
-      // --------------------------------------------------
+      // =================================================
       // SUCCESS
-      // --------------------------------------------------
+      // =================================================
 
       console.log(
         'Issue successfully saved to Supabase:',
         data
       );
 
-      // --------------------------------------------------
-      // KEEP EXISTING APP STATE WORKING
-      // --------------------------------------------------
+      console.log(
+        'Saved photo URL:',
+        photoUrl
+      );
+
+      // =================================================
+      // KEEP LOCAL APP STATE WORKING
+      // =================================================
 
       dispatch({
         type: 'SUBMIT_ISSUE',
@@ -292,7 +539,8 @@ export default function ReportIssue() {
           id:
             data?.id,
 
-          title,
+          title:
+            title,
 
           priority:
             'medium',
@@ -309,30 +557,73 @@ export default function ReportIssue() {
           lng:
             pickedLoc[1],
 
-          citizenName,
+          citizenName:
+            citizenName,
 
           user_id:
             user.id,
+
+          // IMPORTANT:
+          // Keep uploaded photo URL
+          photo_url:
+            photoUrl,
         },
       });
+
+      // --------------------------------------------------
+      // FINISH
+      // --------------------------------------------------
+
+      setUploading(false);
 
       setSubmitted(true);
 
     } catch (error) {
+      // =================================================
+      // UNEXPECTED ERROR
+      // =================================================
+
       console.error(
         'Unexpected submission error:',
         error
       );
 
       alert(
-        'Something went wrong while submitting the report.'
+        `Something went wrong while submitting the report.
+
+${error?.message || ''}`
       );
+
+      setUploading(false);
     }
   };
 
-  // --------------------------------------------------
+  // ==================================================
+  // RESET FORM
+  // ==================================================
+
+  const resetForm = () => {
+    setForm({
+      category: '',
+      description: '',
+      wardId: '',
+      citizenName: '',
+      isAnonymous: false,
+      photo: null,
+    });
+
+    setPickedLoc(null);
+
+    setPhotoPreview(null);
+
+    setErrors({});
+
+    setUploading(false);
+  };
+
+  // ==================================================
   // SUCCESS SCREEN
-  // --------------------------------------------------
+  // ==================================================
 
   if (submitted) {
     return (
@@ -344,6 +635,8 @@ export default function ReportIssue() {
 
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
 
+          {/* SUCCESS ICON */}
+
           <div className="w-16 h-16 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center mb-4">
 
             <CheckCircle
@@ -353,34 +646,30 @@ export default function ReportIssue() {
 
           </div>
 
+          {/* TITLE */}
+
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
             Issue Reported Successfully
           </h2>
 
+          {/* DESCRIPTION */}
+
           <p className="text-slate-500 dark:text-slate-400 max-w-sm mb-6">
-            Your report has been submitted and is now visible
-            on the city map. You can track its status under{' '}
+            Your report has been submitted
+            and is now visible on the city
+            map. You can track its status
+            under{' '}
             <strong>My Reports</strong>.
           </p>
+
+          {/* BUTTONS */}
 
           <div className="flex gap-3">
 
             <button
               onClick={() => {
                 setSubmitted(false);
-
-                setForm({
-                  category: '',
-                  description: '',
-                  wardId: '',
-                  citizenName: '',
-                  isAnonymous: false,
-                  photo: null,
-                });
-
-                setPickedLoc(null);
-                setPhotoPreview(null);
-                setErrors({});
+                resetForm();
               }}
               className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700"
             >
@@ -397,21 +686,30 @@ export default function ReportIssue() {
           </div>
 
         </div>
+
       </div>
     );
   }
 
-  // --------------------------------------------------
+  // ==================================================
   // MAIN FORM
-  // --------------------------------------------------
+  // ==================================================
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+
+      {/* =================================================
+          HEADER
+      ================================================= */}
 
       <Header
         title="Report a Civic Issue"
         subtitle="Help us improve the city by reporting problems in your area"
       />
+
+      {/* =================================================
+          CONTENT
+      ================================================= */}
 
       <div className="flex-1 overflow-y-auto p-6">
 
@@ -420,23 +718,32 @@ export default function ReportIssue() {
           className="max-w-6xl mx-auto space-y-6"
         >
 
+          {/* =================================================
+              TWO COLUMN LAYOUT
+          ================================================= */}
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            {/* ==========================================
+            {/* =================================================
                 LEFT SIDE
-            ========================================== */}
+            ================================================= */}
 
             <div className="space-y-5">
 
-              {/* CATEGORY */}
+              {/* =================================================
+                  CATEGORY
+              ================================================= */}
 
               <div>
 
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+
                   Issue Category{' '}
+
                   <span className="text-red-500">
                     *
                   </span>
+
                 </label>
 
                 <select
@@ -476,15 +783,20 @@ export default function ReportIssue() {
 
               </div>
 
-              {/* WARD */}
+              {/* =================================================
+                  WARD
+              ================================================= */}
 
               <div>
 
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+
                   Ward / Area{' '}
+
                   <span className="text-red-500">
                     *
                   </span>
+
                 </label>
 
                 <select
@@ -503,14 +815,16 @@ export default function ReportIssue() {
                     Select ward / area
                   </option>
 
-                  {wards.map((ward) => (
-                    <option
-                      key={ward.id}
-                      value={ward.id}
-                    >
-                      {ward.name}
-                    </option>
-                  ))}
+                  {wards.map(
+                    (ward) => (
+                      <option
+                        key={ward.id}
+                        value={ward.id}
+                      >
+                        {ward.name}
+                      </option>
+                    )
+                  )}
 
                 </select>
 
@@ -522,15 +836,20 @@ export default function ReportIssue() {
 
               </div>
 
-              {/* DESCRIPTION */}
+              {/* =================================================
+                  DESCRIPTION
+              ================================================= */}
 
               <div>
 
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+
                   Description{' '}
+
                   <span className="text-red-500">
                     *
                   </span>
+
                 </label>
 
                 <textarea
@@ -555,7 +874,9 @@ export default function ReportIssue() {
 
               </div>
 
-              {/* ANONYMOUS */}
+              {/* =================================================
+                  ANONYMOUS
+              ================================================= */}
 
               <div className="flex items-center gap-2">
 
@@ -580,16 +901,21 @@ export default function ReportIssue() {
 
               </div>
 
-              {/* CITIZEN NAME */}
+              {/* =================================================
+                  CITIZEN NAME
+              ================================================= */}
 
               {!form.isAnonymous && (
                 <div>
 
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+
                     Your Name{' '}
+
                     <span className="text-red-500">
                       *
                     </span>
+
                   </label>
 
                   <input
@@ -619,28 +945,37 @@ export default function ReportIssue() {
                 </div>
               )}
 
-              {/* PHOTO */}
+              {/* =================================================
+                  PHOTO UPLOAD
+              ================================================= */}
 
               <div>
 
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+
                   Photo{' '}
+
                   <span className="text-slate-400">
                     (optional)
                   </span>
+
                 </label>
 
                 {photoPreview ? (
 
+                  /* ==========================================
+                     PHOTO PREVIEW
+                  ========================================== */
+
                   <div className="relative">
 
                     <img
-                      src={
-                        photoPreview
-                      }
+                      src={photoPreview}
                       alt="Issue preview"
-                      className="w-full h-48 object-cover rounded-lg"
+                      className="w-full h-48 object-cover rounded-lg border border-slate-200 dark:border-slate-700"
                     />
+
+                    {/* REMOVE PHOTO */}
 
                     <button
                       type="button"
@@ -657,24 +992,38 @@ export default function ReportIssue() {
                           })
                         );
                       }}
-                      className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70"
+                      className="absolute top-2 right-2 w-8 h-8 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80"
                     >
-                      <X size={14} />
+                      <X size={15} />
                     </button>
+
+                    {/* FILE NAME */}
+
+                    <div className="absolute bottom-2 left-2 right-2 bg-black/60 text-white text-xs rounded px-2 py-1 truncate">
+                      {form.photo?.name}
+                    </div>
 
                   </div>
 
                 ) : (
 
-                  <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer hover:border-teal-400 dark:hover:border-teal-600 transition-colors">
+                  /* ==========================================
+                     UPLOAD BOX
+                  ========================================== */
+
+                  <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer hover:border-teal-400 dark:hover:border-teal-600 transition-colors">
 
                     <Upload
-                      size={20}
+                      size={22}
                       className="text-slate-400 mb-1"
                     />
 
                     <span className="text-sm text-slate-500">
                       Click to upload photo
+                    </span>
+
+                    <span className="text-xs text-slate-400 mt-1">
+                      JPG, PNG, WEBP • Max 5 MB
                     </span>
 
                     <input
@@ -694,18 +1043,23 @@ export default function ReportIssue() {
 
             </div>
 
-            {/* ==========================================
+            {/* =================================================
                 RIGHT SIDE — MAP
-            ========================================== */}
+            ================================================= */}
 
             <div>
 
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+
                 Pin Location on Map{' '}
+
                 <span className="text-red-500">
                   *
                 </span>
+
               </label>
+
+              {/* MAP */}
 
               <div className="relative h-80 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
 
@@ -718,9 +1072,7 @@ export default function ReportIssue() {
                     height: '100%',
                     width: '100%',
                   }}
-                  zoomControl={
-                    true
-                  }
+                  zoomControl={true}
                 >
 
                   <TileLayer
@@ -741,6 +1093,8 @@ export default function ReportIssue() {
 
               </div>
 
+              {/* LOCATION STATUS */}
+
               {pickedLoc ? (
 
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
@@ -748,23 +1102,25 @@ export default function ReportIssue() {
                   <MapPin size={12} />
 
                   Location selected:{' '}
-                  {pickedLoc[0].toFixed(
-                    5
-                  )}
+
+                  {pickedLoc[0].toFixed(5)}
+
                   ,{' '}
-                  {pickedLoc[1].toFixed(
-                    5
-                  )}
+
+                  {pickedLoc[1].toFixed(5)}
 
                 </div>
 
               ) : (
 
                 <p className="mt-2 text-xs text-slate-500">
-                  Click on the map to mark the exact issue location
+                  Click on the map to mark
+                  the exact issue location
                 </p>
 
               )}
+
+              {/* LOCATION ERROR */}
 
               {errors.loc && (
                 <p className="text-xs text-red-500 mt-1">
@@ -776,46 +1132,35 @@ export default function ReportIssue() {
 
           </div>
 
-          {/* ==========================================
+          {/* =================================================
               BUTTONS
-          ========================================== */}
+          ================================================= */}
 
           <div className="flex justify-end gap-3 pt-2">
 
+            {/* RESET */}
+
             <button
               type="button"
-              onClick={() => {
-
-                setForm({
-                  category: '',
-                  description: '',
-                  wardId: '',
-                  citizenName: '',
-                  isAnonymous: false,
-                  photo: null,
-                });
-
-                setPickedLoc(
-                  null
-                );
-
-                setPhotoPreview(
-                  null
-                );
-
-                setErrors({});
-
-              }}
-              className="px-5 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800"
+              onClick={resetForm}
+              disabled={uploading}
+              className="px-5 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
             >
               Reset
             </button>
 
+            {/* SUBMIT */}
+
             <button
               type="submit"
-              className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-semibold transition-colors"
+              disabled={uploading}
+              className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Submit Report
+
+              {uploading
+                ? 'Submitting...'
+                : 'Submit Report'}
+
             </button>
 
           </div>
@@ -845,9 +1190,18 @@ function ClickHandler({
     },
   });
 
-  React.useEffect(() => {
+  // ==================================================
+  // CREATE / REMOVE MARKER
+  // ==================================================
 
-    if (!picked) return;
+  useEffect(() => {
+    if (!picked) {
+      return;
+    }
+
+    // --------------------------------------------------
+    // RED MARKER
+    // --------------------------------------------------
 
     const icon =
       L.divIcon({
@@ -868,11 +1222,21 @@ function ClickHandler({
         iconAnchor: [9, 9],
       });
 
+    // --------------------------------------------------
+    // ADD MARKER
+    // --------------------------------------------------
+
     const marker =
       L.marker(
         picked,
-        { icon }
+        {
+          icon,
+        }
       ).addTo(map);
+
+    // --------------------------------------------------
+    // CLEANUP OLD MARKER
+    // --------------------------------------------------
 
     return () => {
       map.removeLayer(
