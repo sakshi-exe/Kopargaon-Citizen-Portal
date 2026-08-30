@@ -47,10 +47,14 @@ function AuthGuard({ children }) {
     let mounted = true;
 
     const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } =
+        await supabase.auth.getSession();
 
       if (mounted) {
-        setSession(data?.session || null);
+        setSession(
+          data?.session || null
+        );
+
         setLoading(false);
       }
     };
@@ -58,12 +62,19 @@ function AuthGuard({ children }) {
     checkSession();
 
     const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      if (mounted) {
-        setSession(newSession || null);
-      }
-    });
+      data: {
+        subscription,
+      },
+    } =
+      supabase.auth.onAuthStateChange(
+        (_event, newSession) => {
+          if (mounted) {
+            setSession(
+              newSession || null
+            );
+          }
+        }
+      );
 
     return () => {
       mounted = false;
@@ -90,7 +101,12 @@ function AuthGuard({ children }) {
   }
 
   if (!session) {
-    return <Navigate to="/auth" replace />;
+    return (
+      <Navigate
+        to="/auth"
+        replace
+      />
+    );
   }
 
   return children;
