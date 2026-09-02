@@ -1,84 +1,127 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext.jsx';
 import { transformations } from '../../data/transformations.js';
 import { getWardName } from '../../data/wards.js';
-import { VideoEvidencePlayer } from './VideoEvidencePlayer.jsx';
 import { QRCodeSVG } from './QRCodeView.jsx';
 
 import {
   Sparkles,
   CheckCircle2,
-  AlertTriangle,
   ArrowRight,
   ShieldCheck,
   QrCode,
-  Clock,
-  IndianRupee,
-  Layers,
   Check,
-  ExternalLink,
-  HelpCircle,
-  TrendingUp,
-  CheckCircle,
-  RefreshCw,
   Eye,
-  ArrowLeftRight,
-  ChevronRight,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function TransformationShowcase() {
   const { state, dispatch } = useApp();
 
-  const [selectedId, setSelectedId] = useState('TRANS-01');
+  const [selectedId, setSelectedId] = useState(
+    transformations?.[0]?.id || 'TRANS-01'
+  );
+
   const [viewMode, setViewMode] = useState('split');
   const [sliderPos, setSliderPos] = useState(50);
   const [animStage, setAnimStage] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  const current =
-    transformations.find((t) => t.id === selectedId) || transformations[0];
+  const animationTimerRef = useRef(null);
 
-  /* =========================================================
-     OPEN ASSET QR / TRANSPARENCY MODAL
-  ========================================================= */
+  const current =
+    transformations?.find((item) => item.id === selectedId) ||
+    transformations?.[0];
+
+  /*
+   * ---------------------------------------------------------
+   * SAFETY
+   * ---------------------------------------------------------
+   */
+
+  useEffect(() => {
+    return () => {
+      if (animationTimerRef.current) {
+        clearTimeout(animationTimerRef.current);
+      }
+    };
+  }, []);
+
+  if (!current) {
+    return (
+      <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+          <Sparkles className="text-slate-400" size={24} />
+        </div>
+
+        <h3 className="mt-4 text-lg font-black text-slate-900">
+          No transformations available
+        </h3>
+
+        <p className="mt-2 text-sm text-slate-500">
+          Verified infrastructure transformation records will appear here.
+        </p>
+      </div>
+    );
+  }
+
+  /*
+   * ---------------------------------------------------------
+   * OPEN ASSET / PUBLIC RECORD
+   * ---------------------------------------------------------
+   */
 
   const handleOpenAssetQR = (assetId) => {
+    if (!assetId) return;
+
+    const infrastructureList = Array.isArray(state?.infrastructure)
+      ? state.infrastructure
+      : [];
+
+    const targetFromState = infrastructureList.find(
+      (item) => item.id === assetId
+    );
+
     const target =
-      state.infrastructure.find((i) => i.id === assetId) || {
-        id: current.assetId,
-        name: current.title,
-        type: current.category,
-        wardId: current.wardId,
-        condition: current.after
-          ? current.after.conditionScore
-          : 9.5,
-        installDate: current.startDate || '2026-06-12',
-        lastInspection: current.completedDate || '2026-08-15',
+      targetFromState ||
+      {
+        id: assetId,
+        name: current.title || 'Civic Infrastructure Asset',
+        type: current.category || 'Infrastructure',
+        wardId: current.wardId || null,
+        condition:
+          current?.after?.conditionScore ??
+          current?.after?.score ??
+          9.5,
+        installDate: current.startDate || '—',
+        lastInspection: current.completedDate || '—',
         maintenanceStatus: 'Up-to-date',
-        contractor: current.contractor,
-        budget: 24500000,
-        citizenReports: 23,
-        description: current.story,
+        contractor: current.contractor || 'Municipal Works Department',
+        budget: current.budget || 24500000,
+        citizenReports: current.citizenReports || 0,
+        description:
+          current.story ||
+          'Verified civic infrastructure transformation record.',
         maintenanceHistory: [
           {
-            date: '2026-06-12',
+            date: current.startDate || '—',
             action:
-              'Issue reported & site inspection verified 18 potholes',
+              'Issue reported and site inspection initiated.',
           },
           {
-            date: '2026-06-25',
+            date: current.startDate || '—',
             action:
-              'Project approved with ₹2.45 Cr budget allocation',
+              'Project approved with municipal budget allocation.',
           },
           {
-            date: '2026-07-20',
+            date: current.completedDate || '—',
             action:
-              'Dense bituminous macadam base completed',
+              'Infrastructure improvement work completed.',
           },
           {
-            date: '2026-08-15',
+            date: current.completedDate || '—',
             action:
-              'Final wearing course & thermoplastic lane marking verified',
+              'Final field inspection and verification completed.',
           },
         ],
       };
@@ -89,28 +132,41 @@ export default function TransformationShowcase() {
     });
   };
 
-  /* =========================================================
-     SMART ANIMATION
-  ========================================================= */
+  /*
+   * ---------------------------------------------------------
+   * TRANSFORMATION ANIMATION
+   * ---------------------------------------------------------
+   */
 
   const triggerTransformationAnimation = () => {
+    if (animationTimerRef.current) {
+      clearTimeout(animationTimerRef.current);
+    }
+
     setViewMode('animate');
     setIsAnimating(true);
     setAnimStage(0);
 
-    setTimeout(() => {
+    const firstTimer = setTimeout(() => {
       setAnimStage(1);
     }, 1200);
 
-    setTimeout(() => {
+    animationTimerRef.current = setTimeout(() => {
+      clearTimeout(firstTimer);
       setAnimStage(2);
       setIsAnimating(false);
+      animationTimerRef.current = null;
     }, 2800);
   };
 
-  /* =========================================================
-     SAFE DATA
-  ========================================================= */
+  /*
+   * ---------------------------------------------------------
+   * SAFE DATA
+   * ---------------------------------------------------------
+   */
+
+  const beforeImage = current?.before?.image;
+  const afterImage = current?.after?.image;
 
   const beforeScore =
     current?.before?.conditionScore ??
@@ -122,123 +178,103 @@ export default function TransformationShowcase() {
     current?.after?.score ??
     'Improved';
 
-  const wardName = getWardName
-    ? getWardName(current.wardId)
-    : current.wardId;
+  const wardName =
+    typeof getWardName === 'function'
+      ? getWardName(current?.wardId)
+      : current?.wardId;
+
+  const metrics = Array.isArray(current?.metrics)
+    ? current.metrics
+    : [];
+
+  /*
+   * ---------------------------------------------------------
+   * IMAGE FALLBACK
+   * ---------------------------------------------------------
+   */
+
+  const ImageFallback = ({ label }) => (
+    <div className="absolute inset-0 flex items-center justify-center bg-slate-100">
+      <div className="text-center px-6">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <Eye size={22} className="text-slate-400" />
+        </div>
+
+        <p className="mt-3 text-sm font-bold text-slate-600">
+          {label}
+        </p>
+
+        <p className="mt-1 text-xs text-slate-400">
+          Image evidence unavailable
+        </p>
+      </div>
+    </div>
+  );
+
+  /*
+   * ---------------------------------------------------------
+   * RENDER
+   * ---------------------------------------------------------
+   */
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-10">
+    <div className="mx-auto w-full max-w-7xl space-y-8 pb-10">
 
       {/* =====================================================
-          TOP HERO
+          HERO
       ===================================================== */}
 
-      <section
-        className="
-          relative overflow-hidden
-          p-6 sm:p-8
-          rounded-3xl
-          bg-white
-          border border-slate-200
-          shadow-lg
-        "
-      >
-        {/* subtle tricolour decoration */}
+      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-lg sm:p-8">
 
-        <div
-          className="
-            absolute top-0 left-0 right-0 h-1
-            bg-gradient-to-r
-            from-orange-400
-            via-white
-            to-green-600
-          "
-        />
+        {/* Tricolour top line */}
 
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-7">
+        <div className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-orange-400 via-white to-green-600" />
+
+        <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
 
           <div className="max-w-2xl">
 
-            {/* Badge */}
+            <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-gradient-to-r from-orange-50 via-white to-green-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-teal-600">
 
-            <div
-              className="
-                inline-flex items-center gap-2
-                px-4 py-2
-                rounded-full
-                bg-gradient-to-r from-orange-50 via-white to-green-50
-                border border-teal-200
-                text-teal-600
-                text-xs font-bold
-                uppercase tracking-wider
-              "
-            >
               <ShieldCheck size={15} />
 
               <span>
                 KOPARGAON FIX · OFFICIAL CIVIC AUDIT
               </span>
+
             </div>
 
-            {/* Heading */}
+            <h2 className="mt-5 text-4xl font-black leading-[1.05] tracking-tight text-slate-900 sm:text-5xl">
 
-            <h2
-              className="
-                mt-5
-                text-4xl sm:text-5xl
-                font-black
-                tracking-tight
-                leading-[1.05]
-                text-slate-900
-              "
-            >
               From Problem to
+
               <br />
+
               <span className="text-slate-900">
                 Progress
               </span>
+
             </h2>
 
-            <p
-              className="
-                mt-4
-                max-w-xl
-                text-base sm:text-lg
-                leading-7
-                text-slate-600
-              "
-            >
-              See how Kopargaon Fix transformed the road.
-              Genuine municipal project documentation from
-              citizen detection to field verification.
+            <p className="mt-4 max-w-xl text-base leading-7 text-slate-600 sm:text-lg">
+              See how Kopargaon Fix transformed civic infrastructure.
+              Genuine municipal project documentation from citizen
+              detection to field verification.
             </p>
 
-            {/* Tricolour line */}
-
-            <div className="flex items-center gap-1 mt-5">
+            <div className="mt-5 flex items-center gap-1">
               <span className="h-1 w-14 rounded-full bg-orange-500" />
               <span className="h-1 w-10 rounded-full bg-slate-200" />
               <span className="h-1 w-14 rounded-full bg-green-600" />
             </div>
           </div>
 
-          {/* Actions */}
-
-          <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
 
             <button
+              type="button"
               onClick={triggerTransformationAnimation}
-              className="
-                inline-flex items-center justify-center gap-2
-                px-5 py-3
-                rounded-xl
-                bg-teal-500
-                hover:bg-teal-600
-                text-white
-                text-sm font-bold
-                shadow-md shadow-teal-500/20
-                transition-all
-              "
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-500 px-5 py-3 text-sm font-bold text-white shadow-md shadow-teal-500/20 transition-all hover:bg-teal-600"
             >
               <RefreshCw size={17} />
 
@@ -246,24 +282,19 @@ export default function TransformationShowcase() {
             </button>
 
             <button
+              type="button"
               onClick={() =>
                 handleOpenAssetQR(current.assetId)
               }
-              className="
-                inline-flex items-center justify-center gap-2
-                px-5 py-3
-                rounded-xl
-                bg-white
-                hover:bg-slate-50
-                border border-slate-300
-                text-slate-800
-                text-sm font-bold
-                transition-all
-              "
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition-all hover:bg-slate-50"
             >
               <QrCode size={17} />
 
-              Scan Asset QR ({current.assetId})
+              Scan Asset QR
+
+              <span className="font-mono text-xs text-slate-500">
+                ({current.assetId})
+              </span>
             </button>
 
           </div>
@@ -273,55 +304,41 @@ export default function TransformationShowcase() {
             TRANSFORMATION SELECTOR
         =================================================== */}
 
-        <div className="mt-8 pt-6 border-t border-slate-200">
+        <div className="mt-8 border-t border-slate-200 pt-6">
 
-          <div
-            className="
-              flex gap-2
-              overflow-x-auto
-              pb-1
-              scrollbar-thin
-            "
-          >
+          <div className="flex gap-2 overflow-x-auto pb-1">
+
             {transformations.map((item) => {
               const active = item.id === selectedId;
 
               return (
                 <button
+                  type="button"
                   key={item.id}
                   onClick={() => {
+                    if (animationTimerRef.current) {
+                      clearTimeout(animationTimerRef.current);
+                      animationTimerRef.current = null;
+                    }
+
                     setSelectedId(item.id);
                     setSliderPos(50);
                     setAnimStage(0);
                     setIsAnimating(false);
+                    setViewMode('split');
                   }}
                   className={`
-                    flex-shrink-0
-                    px-4 py-2.5
-                    rounded-xl
-                    border
-                    text-xs sm:text-sm
-                    font-bold
-                    transition-all
+                    flex-shrink-0 rounded-xl border px-4 py-2.5 text-xs font-bold transition-all sm:text-sm
                     ${
                       active
-                        ? `
-                          bg-white
-                          border-teal-400
-                          text-slate-900
-                          shadow-md
-                        `
-                        : `
-                          bg-slate-50
-                          border-slate-200
-                          text-slate-600
-                          hover:bg-white
-                          hover:border-teal-200
-                        `
+                        ? 'border-teal-400 bg-white text-slate-900 shadow-md'
+                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-teal-200 hover:bg-white'
                     }
                   `}
                 >
-                  <span>{item.title}</span>
+                  <span>
+                    {item.title}
+                  </span>
 
                   <span className="ml-2 text-[10px] text-slate-500">
                     ({item.assetId})
@@ -329,54 +346,28 @@ export default function TransformationShowcase() {
                 </button>
               );
             })}
-          </div>
 
+          </div>
         </div>
       </section>
 
       {/* =====================================================
-          MAIN SHOWCASE CARD
+          MAIN SHOWCASE
       ===================================================== */}
 
-      <section
-        className="
-          overflow-hidden
-          rounded-3xl
-          bg-white
-          border border-slate-200
-          shadow-lg
-        "
-      >
+      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
 
-        {/* Top bar */}
+        {/* Top Bar */}
 
-        <div
-          className="
-            flex flex-col sm:flex-row
-            sm:items-center
-            sm:justify-between
-            gap-4
-            px-6 py-5
-            border-b border-slate-200
-          "
-        >
+        <div className="flex flex-col gap-4 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
 
-            <span
-              className="
-                px-3 py-1.5
-                rounded-lg
-                bg-blue-50
-                text-blue-600
-                text-xs font-black
-                font-mono
-              "
-            >
+            <span className="rounded-lg bg-blue-50 px-3 py-1.5 font-mono text-xs font-black text-blue-600">
               {current.assetId}
             </span>
 
-            <span className="text-red-500 text-sm font-black">
+            <span className="text-sm font-black text-red-500">
               BEFORE
             </span>
 
@@ -385,53 +376,39 @@ export default function TransformationShowcase() {
               className="text-slate-400"
             />
 
-            <span className="text-emerald-600 text-sm font-black">
+            <span className="text-sm font-black text-emerald-600">
               AFTER
             </span>
 
           </div>
 
-          {/* View controls */}
+          {/* View Controls */}
 
-          <div
-            className="
-              inline-flex
-              rounded-xl
-              border border-slate-200
-              p-1
-              bg-slate-50
-              text-xs
-              font-medium
-              self-start
-              sm:self-auto
-            "
-          >
+          <div className="flex max-w-full overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-1 text-xs font-medium">
 
             <button
+              type="button"
               onClick={() => setViewMode('split')}
               className={`
-                px-3.5 py-2
-                rounded-lg
-                transition-all
+                whitespace-nowrap rounded-lg px-3.5 py-2 transition-all
                 ${
                   viewMode === 'split'
-                    ? 'bg-teal-500 text-white font-bold shadow-sm'
+                    ? 'bg-teal-500 font-bold text-white shadow-sm'
                     : 'text-slate-600 hover:bg-white'
                 }
               `}
             >
-              Side-by-Side View
+              Side-by-Side
             </button>
 
             <button
+              type="button"
               onClick={() => setViewMode('slider')}
               className={`
-                px-3.5 py-2
-                rounded-lg
-                transition-all
+                whitespace-nowrap rounded-lg px-3.5 py-2 transition-all
                 ${
                   viewMode === 'slider'
-                    ? 'bg-teal-500 text-white font-bold shadow-sm'
+                    ? 'bg-teal-500 font-bold text-white shadow-sm'
                     : 'text-slate-600 hover:bg-white'
                 }
               `}
@@ -440,14 +417,13 @@ export default function TransformationShowcase() {
             </button>
 
             <button
+              type="button"
               onClick={triggerTransformationAnimation}
               className={`
-                px-3.5 py-2
-                rounded-lg
-                transition-all
+                whitespace-nowrap rounded-lg px-3.5 py-2 transition-all
                 ${
                   viewMode === 'animate'
-                    ? 'bg-teal-500 text-white font-bold shadow-sm'
+                    ? 'bg-teal-500 font-bold text-white shadow-sm'
                     : 'text-slate-600 hover:bg-white'
                 }
               `}
@@ -459,160 +435,92 @@ export default function TransformationShowcase() {
         </div>
 
         {/* ===================================================
-            VIEW 1 — SIDE BY SIDE
+            SIDE BY SIDE
         =================================================== */}
 
         {viewMode === 'split' && (
-          <div className="p-6 bg-slate-50">
+          <div className="bg-slate-50 p-4 sm:p-6">
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
 
               {/* BEFORE */}
 
-              <div
-                className="
-                  overflow-hidden
-                  rounded-2xl
-                  bg-white
-                  border-2 border-red-200
-                  shadow-sm
-                "
-              >
+              <div className="overflow-hidden rounded-2xl border-2 border-red-200 bg-white shadow-sm">
 
-                <div
-                  className="
-                    flex items-center justify-between
-                    px-5 py-4
-                    border-b border-red-100
-                    bg-red-50/70
-                  "
-                >
+                <div className="flex flex-col gap-3 border-b border-red-100 bg-red-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
 
                   <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-red-500" />
+                    <span className="h-3 w-3 rounded-full bg-red-500" />
 
                     <span className="text-sm font-black text-red-900">
                       BEFORE OUR PROJECT
                     </span>
                   </div>
 
-                  <span
-                    className="
-                      px-3 py-1
-                      rounded-full
-                      bg-red-100
-                      text-red-600
-                      text-xs font-bold
-                    "
-                  >
-                    Status: Poor Condition
+                  <span className="w-fit rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-600">
+                    Status: {beforeScore}
                   </span>
 
                 </div>
 
                 <div className="relative aspect-[4/3] overflow-hidden">
 
-                  <img
-                    src={current.before.image}
-                    alt="Before Our Project"
-                    className="
-                      absolute inset-0
-                      w-full h-full
-                      object-cover
-                    "
-                  />
+                  {beforeImage ? (
+                    <img
+                      src={beforeImage}
+                      alt={`Before ${current.title}`}
+                      className="absolute inset-0 h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <ImageFallback label="Before image" />
+                  )}
 
-                  <div
-                    className="
-                      absolute
-                      top-4 left-4
-                      px-3.5 py-1.5
-                      rounded-xl
-                      bg-red-600
-                      text-white
-                      text-xs font-extrabold
-                      shadow-lg
-                    "
-                  >
+                  <div className="absolute left-4 top-4 rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-lg">
                     ORIGINAL ROAD STATE
                   </div>
 
                 </div>
-
               </div>
 
               {/* AFTER */}
 
-              <div
-                className="
-                  overflow-hidden
-                  rounded-2xl
-                  bg-white
-                  border-2 border-emerald-300
-                  shadow-sm
-                "
-              >
+              <div className="overflow-hidden rounded-2xl border-2 border-emerald-300 bg-white shadow-sm">
 
-                <div
-                  className="
-                    flex items-center justify-between
-                    px-5 py-4
-                    border-b border-emerald-100
-                    bg-emerald-50/70
-                  "
-                >
+                <div className="flex flex-col gap-3 border-b border-emerald-100 bg-emerald-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
 
                   <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-emerald-500" />
+                    <span className="h-3 w-3 rounded-full bg-emerald-500" />
 
                     <span className="text-sm font-black text-emerald-950">
                       AFTER OUR PROJECT
                     </span>
                   </div>
 
-                  <span
-                    className="
-                      px-3 py-1
-                      rounded-full
-                      bg-emerald-100
-                      text-emerald-700
-                      text-xs font-bold
-                    "
-                  >
-                    Status: Improved Condition
+                  <span className="w-fit rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+                    Status: {afterScore}
                   </span>
 
                 </div>
 
                 <div className="relative aspect-[4/3] overflow-hidden">
 
-                  <img
-                    src={current.after.image}
-                    alt="After Our Project"
-                    className="
-                      absolute inset-0
-                      w-full h-full
-                      object-cover
-                    "
-                  />
+                  {afterImage ? (
+                    <img
+                      src={afterImage}
+                      alt={`After ${current.title}`}
+                      className="absolute inset-0 h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <ImageFallback label="After image" />
+                  )}
 
-                  <div
-                    className="
-                      absolute
-                      top-4 left-4
-                      px-3.5 py-1.5
-                      rounded-xl
-                      bg-emerald-600
-                      text-white
-                      text-xs font-extrabold
-                      shadow-lg
-                    "
-                  >
+                  <div className="absolute left-4 top-4 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-lg">
                     COMPLETED & INSPECTED
                   </div>
 
                 </div>
-
               </div>
 
             </div>
@@ -620,260 +528,144 @@ export default function TransformationShowcase() {
         )}
 
         {/* ===================================================
-            VIEW 2 — INTERACTIVE SLIDER
+            INTERACTIVE SLIDER
         =================================================== */}
 
         {viewMode === 'slider' && (
-          <div className="p-6 bg-slate-50">
+          <div className="bg-slate-50 p-4 sm:p-6">
 
-            <div
-              className="
-                relative
-                aspect-[16/10]
-                sm:h-[520px]
-                rounded-3xl
-                overflow-hidden
-                border border-slate-200
-                bg-white
-                shadow-lg
-              "
-            >
+            <div className="relative aspect-[16/10] w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
 
               {/* AFTER BASE */}
 
-              <img
-                src={current.after.image}
-                alt="After Our Project"
-                className="
-                  absolute inset-0
-                  w-full h-full
-                  object-cover
-                "
-              />
+              {afterImage ? (
+                <img
+                  src={afterImage}
+                  alt={`After ${current.title}`}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              ) : (
+                <ImageFallback label="After image" />
+              )}
 
               {/* AFTER LABEL */}
 
-              <div
-                className="
-                  absolute
-                  top-4 right-4
-                  px-3.5 py-1.5
-                  rounded-xl
-                  bg-emerald-600
-                  text-white
-                  text-xs font-extrabold
-                  shadow-lg
-                  z-10
-                "
-              >
+              <div className="absolute right-4 top-4 z-10 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-lg">
                 AFTER OUR PROJECT
               </div>
 
               {/* BEFORE CLIPPED */}
 
               <div
-                className="
-                  absolute
-                  inset-y-0 left-0
-                  overflow-hidden
-                  border-r-4 border-white
-                  shadow-2xl
-                  z-10
-                "
+                className="absolute inset-y-0 left-0 z-10 overflow-hidden border-r-4 border-white shadow-2xl"
                 style={{
                   width: `${sliderPos}%`,
                 }}
               >
 
-                <img
-                  src={current.before.image}
-                  alt="Before Our Project"
-                  className="
-                    absolute inset-0
-                    w-full h-full
-                    object-cover
-                  "
-                  style={{
-                    width: '100vw',
-                    maxWidth: 'none',
-                    minWidth: '100%',
-                  }}
-                />
+                <div className="relative h-full w-full">
 
-                <div
-                  className="
-                    absolute
-                    top-4 left-4
-                    px-3.5 py-1.5
-                    rounded-xl
-                    bg-red-600
-                    text-white
-                    text-xs font-extrabold
-                    shadow-lg
-                  "
-                >
-                  BEFORE OUR PROJECT
+                  {beforeImage ? (
+                    <img
+                      src={beforeImage}
+                      alt={`Before ${current.title}`}
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  ) : (
+                    <ImageFallback label="Before image" />
+                  )}
+
+                  <div className="absolute left-4 top-4 rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-lg">
+                    BEFORE OUR PROJECT
+                  </div>
+
                 </div>
-
               </div>
 
-              {/* SLIDER LINE */}
+              {/* SLIDER HANDLE */}
 
               <div
-                className="
-                  absolute
-                  top-0 bottom-0
-                  w-1
-                  bg-white
-                  cursor-ew-resize
-                  z-20
-                  flex items-center
-                  justify-center
-                  pointer-events-none
-                "
+                className="pointer-events-none absolute bottom-0 top-0 z-20 w-1 bg-white shadow-md"
                 style={{
                   left: `${sliderPos}%`,
                 }}
               >
-
-                <div
-                  className="
-                    w-11 h-11
-                    rounded-full
-                    bg-teal-500
-                    border-2 border-white
-                    text-white
-                    flex items-center
-                    justify-center
-                    shadow-xl
-                    text-sm
-                    font-black
-                  "
-                >
+                <div className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-teal-500 text-sm font-black text-white shadow-xl">
                   ↔
                 </div>
-
               </div>
 
-              {/* RANGE */}
+              {/* RANGE CONTROL */}
 
               <input
                 type="range"
                 min="0"
                 max="100"
+                step="1"
                 value={sliderPos}
-                onChange={(e) =>
-                  setSliderPos(Number(e.target.value))
+                onChange={(event) =>
+                  setSliderPos(Number(event.target.value))
                 }
-                className="
-                  absolute inset-0
-                  w-full h-full
-                  opacity-0
-                  cursor-ew-resize
-                  z-30
-                "
+                aria-label="Compare before and after images"
+                className="absolute inset-0 z-30 h-full w-full cursor-ew-resize opacity-0"
               />
 
             </div>
 
-            <div className="flex justify-between mt-4 text-xs font-bold">
+            <div className="mt-4 flex flex-col gap-2 text-xs font-bold sm:flex-row sm:items-center sm:justify-between">
 
               <span className="text-red-600">
-                Before · Poor Condition
+                Before · {beforeScore}
               </span>
 
               <span className="text-emerald-600">
-                After · Improved Condition
+                After · {afterScore}
               </span>
 
             </div>
-
           </div>
         )}
 
         {/* ===================================================
-            VIEW 3 — SMART ANIMATE
+            SMART ANIMATION
         =================================================== */}
 
         {viewMode === 'animate' && (
-          <div className="p-6 bg-slate-50">
+          <div className="bg-slate-50 p-4 sm:p-6">
 
-            <div
-              className="
-                relative
-                rounded-3xl
-                overflow-hidden
-                border-2 border-slate-200
-                aspect-[16/10]
-                sm:h-[520px]
-                shadow-lg
-                bg-white
-              "
-            >
+            <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border-2 border-slate-200 bg-white shadow-lg">
 
-              {/* IMAGE */}
+              {(
+                animStage === 0
+                  ? beforeImage
+                  : afterImage
+              ) ? (
+                <img
+                  src={
+                    animStage === 0
+                      ? beforeImage
+                      : afterImage
+                  }
+                  alt={`${current.title} transformation stage`}
+                  className="absolute inset-0 h-full w-full object-cover transition-opacity duration-1000"
+                />
+              ) : (
+                <ImageFallback label="Transformation image" />
+              )}
 
-              <img
-                src={
-                  animStage === 0
-                    ? current.before.image
-                    : current.after.image
-                }
-                alt="Transformation Stage"
-                className="
-                  absolute inset-0
-                  w-full h-full
-                  object-cover
-                  transition-all
-                  duration-1000
-                  ease-in-out
-                "
-              />
+              {/* Overlay */}
 
-              {/* LIGHT OVERLAY */}
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/65 via-transparent to-transparent" />
 
-              <div
-                className="
-                  absolute inset-0
-                  bg-gradient-to-t
-                  from-slate-950/65
-                  via-transparent
-                  to-transparent
-                  pointer-events-none
-                "
-              />
+              {/* Stage Indicator */}
 
-              {/* STAGE INDICATOR */}
+              <div className="absolute left-4 right-4 top-5 z-10 flex items-start justify-between gap-4">
 
-              <div
-                className="
-                  absolute
-                  top-5 left-5
-                  right-5
-                  flex
-                  items-start
-                  justify-between
-                  gap-4
-                  z-10
-                "
-              >
-
-                <div
-                  className="
-                    inline-flex items-center gap-2
-                    px-4 py-2
-                    rounded-xl
-                    bg-white/95
-                    backdrop-blur-md
-                    border border-white
-                    shadow-lg
-                    text-xs font-bold
-                  "
-                >
+                <div className="inline-flex max-w-[calc(100%-50px)] items-center gap-2 rounded-xl border border-white bg-white/95 px-4 py-2 text-xs font-bold shadow-lg backdrop-blur-md">
 
                   {animStage === 0 && (
                     <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                      <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-red-500" />
 
                       <span className="text-red-600">
                         STAGE 1: PROBLEM DETECTION
@@ -883,76 +675,54 @@ export default function TransformationShowcase() {
 
                   {animStage === 1 && (
                     <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse" />
+                      <span className="h-2.5 w-2.5 flex-shrink-0 animate-pulse rounded-full bg-orange-500" />
 
                       <span className="text-orange-600">
-                        STAGE 2: CIVIC INTERVENTION & RESURFACING
+                        STAGE 2: CIVIC INTERVENTION
                       </span>
                     </>
                   )}
 
                   {animStage === 2 && (
                     <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                      <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-emerald-500" />
 
                       <span className="text-emerald-600">
-                        STAGE 3: COMPLETED ROAD
+                        STAGE 3: COMPLETED & VERIFIED
                       </span>
                     </>
                   )}
 
                 </div>
 
-                <span
-                  className="
-                    hidden sm:inline-flex
-                    px-3 py-2
-                    rounded-xl
-                    bg-white/95
-                    backdrop-blur-md
-                    border border-white
-                    shadow-lg
-                    text-xs
-                    font-bold
-                    text-slate-700
-                  "
-                >
+                <span className="hidden flex-shrink-0 rounded-xl border border-white bg-white/95 px-3 py-2 text-xs font-bold text-slate-700 shadow-lg backdrop-blur-md sm:inline-flex">
                   {animStage + 1} / 3
                 </span>
 
               </div>
 
-              {/* BOTTOM CONTENT */}
+              {/* Bottom Content */}
 
-              <div
-                className="
-                  absolute
-                  bottom-6
-                  left-6
-                  right-6
-                  z-10
-                  text-white
-                "
-              >
+              <div className="absolute bottom-6 left-6 right-6 z-10 text-white">
 
                 <div className="flex items-end justify-between gap-5">
 
-                  <div>
+                  <div className="min-w-0">
 
                     <div className="text-xs font-bold uppercase tracking-wider text-white/80">
                       {current.assetId}
                     </div>
 
-                    <h3 className="mt-1 text-2xl sm:text-3xl font-black">
+                    <h3 className="mt-1 text-2xl font-black sm:text-3xl">
                       {current.title}
                     </h3>
 
-                    <p className="mt-1 text-sm text-white/80">
+                    <p className="mt-1 max-w-2xl text-sm text-white/80">
                       {animStage === 0 &&
                         'Citizen-reported infrastructure problem identified.'}
 
                       {animStage === 1 &&
-                        'Municipal intervention and resurfacing in progress.'}
+                        'Municipal intervention and infrastructure improvement in progress.'}
 
                       {animStage === 2 &&
                         'Improvement completed and field verified.'}
@@ -961,42 +731,22 @@ export default function TransformationShowcase() {
                   </div>
 
                   {!isAnimating && animStage === 2 && (
-                    <div
-                      className="
-                        hidden sm:flex
-                        items-center gap-2
-                        px-4 py-2
-                        rounded-xl
-                        bg-emerald-500
-                        text-white
-                        text-xs font-bold
-                      "
-                    >
+                    <div className="hidden flex-shrink-0 items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-white sm:flex">
                       <CheckCircle2 size={16} />
                       Verified
                     </div>
                   )}
 
                 </div>
-
               </div>
 
             </div>
 
             {!isAnimating && (
               <button
+                type="button"
                 onClick={triggerTransformationAnimation}
-                className="
-                  mt-4
-                  inline-flex items-center gap-2
-                  px-4 py-2.5
-                  rounded-xl
-                  bg-teal-500
-                  hover:bg-teal-600
-                  text-white
-                  text-sm font-bold
-                  transition-colors
-                "
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-teal-500 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-teal-600"
               >
                 <RefreshCw size={16} />
                 Replay Transformation
@@ -1010,26 +760,15 @@ export default function TransformationShowcase() {
             PROJECT INFORMATION
         =================================================== */}
 
-        <div className="p-6 sm:p-8 border-t border-slate-200 bg-white">
+        <div className="border-t border-slate-200 bg-white p-6 sm:p-8">
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
 
             {/* STORY */}
 
-            <div
-              className="
-                lg:col-span-2
-                p-5
-                rounded-2xl
-                bg-gradient-to-br
-                from-orange-50
-                via-white
-                to-green-50
-                border border-slate-200
-              "
-            >
+            <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-orange-50 via-white to-green-50 p-5 lg:col-span-2">
 
-              <div className="flex items-center gap-2 mb-3">
+              <div className="mb-3 flex items-center gap-2">
 
                 <Sparkles
                   size={18}
@@ -1043,33 +782,34 @@ export default function TransformationShowcase() {
               </div>
 
               <p className="text-sm leading-6 text-slate-600">
-                {current.story}
+                {current.story ||
+                  'Verified civic infrastructure transformation record.'}
               </p>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
 
-                <div className="p-3 rounded-xl bg-white border border-orange-100">
-                  <div className="text-[10px] uppercase font-bold text-slate-400">
+                <div className="rounded-xl border border-orange-100 bg-white p-3">
+                  <div className="text-[10px] font-bold uppercase text-slate-400">
                     Ward
                   </div>
 
                   <div className="mt-1 text-sm font-bold text-slate-800">
-                    {wardName || current.wardId}
+                    {wardName || current.wardId || '—'}
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-white border border-slate-200">
-                  <div className="text-[10px] uppercase font-bold text-slate-400">
+                <div className="rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="text-[10px] font-bold uppercase text-slate-400">
                     Category
                   </div>
 
                   <div className="mt-1 text-sm font-bold text-slate-800">
-                    {current.category}
+                    {current.category || '—'}
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-white border border-slate-200">
-                  <div className="text-[10px] uppercase font-bold text-slate-400">
+                <div className="rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="text-[10px] font-bold uppercase text-slate-400">
                     Start Date
                   </div>
 
@@ -1078,8 +818,8 @@ export default function TransformationShowcase() {
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-white border border-green-100">
-                  <div className="text-[10px] uppercase font-bold text-slate-400">
+                <div className="rounded-xl border border-green-100 bg-white p-3">
+                  <div className="text-[10px] font-bold uppercase text-slate-400">
                     Completed
                   </div>
 
@@ -1089,22 +829,13 @@ export default function TransformationShowcase() {
                 </div>
 
               </div>
-
             </div>
 
             {/* VERIFICATION */}
 
-            <div
-              className="
-                p-5
-                rounded-2xl
-                bg-white
-                border border-slate-200
-                shadow-sm
-              "
-            >
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
-              <div className="flex items-center gap-2 mb-4">
+              <div className="mb-4 flex items-center gap-2">
 
                 <ShieldCheck
                   size={18}
@@ -1119,7 +850,7 @@ export default function TransformationShowcase() {
 
               <div className="space-y-3">
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <span className="text-xs text-slate-500">
                     Field inspection
                   </span>
@@ -1130,7 +861,7 @@ export default function TransformationShowcase() {
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <span className="text-xs text-slate-500">
                     Project completion
                   </span>
@@ -1141,7 +872,7 @@ export default function TransformationShowcase() {
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <span className="text-xs text-slate-500">
                     Public audit
                   </span>
@@ -1155,137 +886,78 @@ export default function TransformationShowcase() {
               </div>
 
               <button
+                type="button"
                 onClick={() =>
                   handleOpenAssetQR(current.assetId)
                 }
-                className="
-                  mt-5
-                  w-full
-                  inline-flex
-                  items-center
-                  justify-center
-                  gap-2
-                  px-4 py-2.5
-                  rounded-xl
-                  bg-slate-50
-                  hover:bg-teal-50
-                  border border-slate-200
-                  hover:border-teal-200
-                  text-slate-700
-                  hover:text-teal-700
-                  text-xs font-bold
-                  transition-colors
-                "
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 transition-colors hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
               >
                 <QrCode size={15} />
                 Open Public Asset Record
               </button>
 
             </div>
-
           </div>
-
         </div>
 
         {/* ===================================================
-            QUANTIFIABLE IMPACT METRICS
+            IMPACT METRICS
         =================================================== */}
 
-        <div
-          className="
-            p-6 sm:p-8
-            border-t border-slate-200
-            bg-slate-50
-          "
-        >
+        <div className="border-t border-slate-200 bg-slate-50 p-6 sm:p-8">
 
-          <h4
-            className="
-              text-xs
-              font-bold
-              uppercase
-              tracking-wider
-              text-slate-500
-              mb-4
-            "
-          >
+          <h4 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-500">
             Quantified Municipal Impact Metrics
           </h4>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {metrics.length > 0 ? (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
 
-            {current.metrics?.map((m, idx) => (
-              <div
-                key={idx}
-                className="
-                  p-4
-                  rounded-2xl
-                  bg-white
-                  border border-slate-200
-                  shadow-sm
-                "
-              >
-
+              {metrics.map((metric, index) => (
                 <div
-                  className="
-                    text-xs
-                    text-slate-500
-                    font-medium
-                    mb-1.5
-                  "
+                  key={`${metric.label || 'metric'}-${index}`}
+                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
                 >
-                  {m.label}
+
+                  <div className="mb-1.5 text-xs font-medium text-slate-500">
+                    {metric.label || 'Metric'}
+                  </div>
+
+                  {metric.before !== undefined && (
+                    <div className="mb-0.5 text-xs text-red-600 line-through opacity-80">
+                      Before: {metric.before}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-1 text-sm font-bold text-emerald-600">
+                    <Check size={14} />
+
+                    {metric.after ?? 'Improved'}
+                  </div>
+
                 </div>
+              ))}
 
-                <div
-                  className="
-                    text-xs
-                    text-red-600
-                    line-through
-                    opacity-80
-                    mb-0.5
-                  "
-                >
-                  Before: {m.before}
-                </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center">
 
-                <div
-                  className="
-                    text-sm
-                    font-bold
-                    text-emerald-600
-                    flex items-center gap-1
-                  "
-                >
-                  <Check size={14} />
-                  {m.after}
-                </div>
+              <p className="text-sm font-semibold text-slate-600">
+                Impact metrics will be published with the verified project record.
+              </p>
 
-              </div>
-            ))}
-
-          </div>
+            </div>
+          )}
 
         </div>
 
         {/* ===================================================
-            FINAL CLOSING STATEMENT
+            CLOSING STATEMENT
         =================================================== */}
 
-        <div
-          className="
-            p-6
-            bg-gradient-to-r
-            from-orange-50
-            via-white
-            to-green-50
-            border-t border-slate-200
-            text-center
-            space-y-1
-          "
-        >
+        <div className="space-y-1 border-t border-slate-200 bg-gradient-to-r from-orange-50 via-white to-green-50 p-6 text-center">
 
-          <div className="flex justify-center items-center gap-1 mb-2">
+          <div className="mb-2 flex items-center justify-center gap-1">
             <span className="h-1 w-10 rounded-full bg-orange-500" />
             <span className="h-1 w-10 rounded-full bg-slate-200" />
             <span className="h-1 w-10 rounded-full bg-green-600" />
@@ -1295,7 +967,7 @@ export default function TransformationShowcase() {
             "From a reported problem to a verified improvement."
           </p>
 
-          <p className="text-xs text-slate-500 font-medium">
+          <p className="text-xs font-medium text-slate-500">
             "Kopargaon Fix — Making infrastructure visible,
             accountable and better."
           </p>
@@ -1303,7 +975,6 @@ export default function TransformationShowcase() {
         </div>
 
       </section>
-
     </div>
   );
 }
